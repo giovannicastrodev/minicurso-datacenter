@@ -58,7 +58,7 @@ export default function DashboardPage() {
     // Busca perfil e papel
     const { data: perfil } = await supabase
       .from('perfis')
-      .select('nome, papel')
+      .select('nome, papel, curso_reiniciado_em')
       .eq('id', session.user.id)
       .maybeSingle()
 
@@ -71,9 +71,6 @@ export default function DashboardPage() {
     const meta = session.user.user_metadata || {}
     const metaIniciado = !!meta.curso_iniciado
     const metaMateriais = Array.isArray(meta.materiais_lidos) ? meta.materiais_lidos : []
-    const reiniciadoEm =
-      meta.curso_reiniciado_em ||
-      localStorage.getItem(`curso_reiniciado_${session.user.id}`)
 
     const localIniciado = localStorage.getItem(`curso_iniciado_${session.user.id}`) === 'true'
     const localMateriais = JSON.parse(
@@ -147,6 +144,7 @@ export default function DashboardPage() {
       .order('enviada_em', { ascending: false })
 
     if (dadosTentativas) {
+      const reiniciadoEm = perfil?.curso_reiniciado_em
       const tentativasValidas = reiniciadoEm
         ? (dadosTentativas as Tentativa[]).filter(
             (t) => new Date(t.enviada_em) > new Date(reiniciadoEm)
@@ -249,22 +247,33 @@ export default function DashboardPage() {
     )
     if (!confirmou) return
 
-    const agora = new Date().toISOString()
     const {
       data: { session },
     } = await supabase.auth.getSession()
 
-    if (session) {
-      localStorage.setItem(`curso_reiniciado_${session.user.id}`, agora)
-      localStorage.setItem(`materiais_lidos_${session.user.id}`, JSON.stringify([]))
-      await supabase.auth.updateUser({
-        data: {
-          curso_reiniciado_em: agora,
-          materiais_lidos: [],
-        },
-      })
+    if (!session) {
+      window.alert(
+        'Não foi possível reiniciar o curso porque sua sessão expirou. Entre novamente e tente de novo.'
+      )
+      return
     }
 
+    const { error: progressError } = await supabase.auth.updateUser({
+      data: { materiais_lidos: [] },
+    })
+
+    if (progressError) {
+      window.alert(`Não foi possível limpar o progresso dos módulos: ${progressError.message}`)
+      return
+    }
+
+    const { error: resetError } = await supabase.rpc('reiniciar_curso')
+    if (resetError) {
+      window.alert(`Não foi possível registrar o reinício do curso: ${resetError.message}`)
+      return
+    }
+
+    localStorage.setItem(`materiais_lidos_${session.user.id}`, JSON.stringify([]))
     setMateriaisLidos([])
     setQuestionarioAtivo(null)
     setVisao('timeline')
@@ -289,6 +298,38 @@ export default function DashboardPage() {
     }
   }
 
+  const modulosConcluidos = useMemo(
+    () =>
+      aulas.length > 0 &&
+      aulas.every((aula) => {
+        const questionariosAula = Array.isArray(aula.questionarios)
+          ? aula.questionarios
+          : aula.questionarios
+            ? [aula.questionarios]
+            : []
+        const fixacao = questionariosAula.find((questionario) => questionario.tipo === 'FIXACAO')
+
+        return (
+          !!fixacao &&
+          tentativas.some(
+            (tentativa) =>
+              tentativa.questionario_id === fixacao.id &&
+              (tentativa.aprovado === true || tentativa.percentual >= 50)
+          )
+        )
+      }),
+    [aulas, tentativas]
+  )
+
+  const handleAbrirQuestionario = (questionario: Questionario) => {
+    if (questionario.tipo === 'FINAL' && !modulosConcluidos) {
+      window.alert('Conclua as atividades de fixação de todos os módulos antes de iniciar a Avaliação Final.')
+      return
+    }
+
+    setQuestionarioAtivo(questionario)
+  }
+
   const aulaAtiva = useMemo(() => {
     return aulas.find((a) => a.id === aulaAtivaId) || aulas[0] || null
   }, [aulas, aulaAtivaId])
@@ -309,16 +350,15 @@ export default function DashboardPage() {
   }, [aulaAtiva, tentativas])
 
   // Estado da Avaliação Final
-  const { totalTentativasFinal, aprovadoFinal, esgotouTentativasFinal } = useMemo(() => {
+  const { totalTentativasFinal, esgotouTentativasFinal } = useMemo(() => {
     if (!avaliacaoFinal) {
-      return { totalTentativasFinal: 0, aprovadoFinal: false, esgotouTentativasFinal: false }
+      return { totalTentativasFinal: 0, esgotouTentativasFinal: false }
     }
     const lista = tentativas.filter((t) => t.questionario_id === avaliacaoFinal.id)
     const aprov = lista.some((t) => t.aprovado || t.percentual >= 70)
     const esgotou = lista.length >= 2 && !aprov
     return {
       totalTentativasFinal: lista.length,
-      aprovadoFinal: aprov,
       esgotouTentativasFinal: esgotou,
     }
   }, [avaliacaoFinal, tentativas])
@@ -503,7 +543,7 @@ export default function DashboardPage() {
             tentativas={tentativas}
             materiaisLidos={materiaisLidos}
             onAcessarAula={handleAcessarAula}
-            onAbrirQuestionario={(q) => setQuestionarioAtivo(q)}
+            onAbrirQuestionario={handleAbrirQuestionario}
             onReiniciarCurso={handleReiniciarCurso}
           />
         )}
@@ -517,7 +557,7 @@ export default function DashboardPage() {
             tentativaFixacao={tentativaAulaAtiva}
             totalTentativasFixacao={totalTentativasFixacao}
             onMarcarMaterialLido={handleMarcarMaterialLido}
-            onAbrirQuestionario={(q) => setQuestionarioAtivo(q)}
+            onAbrirQuestionario={handleAbrirQuestionario}
             onSelecionarAula={(id) => setAulaAtivaId(id)}
             onVoltarTimeline={() => setVisao('timeline')}
           />
@@ -543,6 +583,15 @@ export default function DashboardPage() {
                   50 minutos.
                 </p>
 
+                {!modulosConcluidos && !esgotouTentativasFinal && (
+                  <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400">
+                    <IconLock className="h-4 w-4 shrink-0" />
+                    <span>
+                      Conclua as atividades de fixação de todos os módulos para desbloquear a avaliação.
+                    </span>
+                  </div>
+                )}
+
                 {esgotouTentativasFinal && (
                   <div className="rounded-xl border border-red-800/80 bg-red-950/60 p-3 text-xs text-red-300 font-semibold flex items-center gap-2">
                     <IconLock className="w-4 h-4 text-red-500 shrink-0" />
@@ -563,9 +612,18 @@ export default function DashboardPage() {
                     <IconRefresh className="w-4 h-4" />
                     <span>Reiniciar Trilha de Estudos</span>
                   </button>
+                ) : !modulosConcluidos ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950 px-6 py-3 text-xs font-bold text-zinc-600 sm:text-sm"
+                  >
+                    <IconLock className="h-4 w-4" />
+                    <span>Avaliação Bloqueada</span>
+                  </button>
                 ) : (
                   <button
-                    onClick={() => setQuestionarioAtivo(avaliacaoFinal)}
+                    onClick={() => handleAbrirQuestionario(avaliacaoFinal)}
                     className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-6 py-3 text-xs sm:text-sm font-bold text-white shadow-xl hover:bg-red-700 transition"
                   >
                     <span>

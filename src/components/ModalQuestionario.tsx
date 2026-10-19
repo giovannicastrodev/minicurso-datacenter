@@ -43,6 +43,7 @@ export default function ModalQuestionario({
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState('')
   const [resultado, setResultado] = useState<ResultadoTentativa | null>(null)
+  const [tentativasAntesResultado, setTentativasAntesResultado] = useState<number | null>(null)
   const [tempoRestanteSegundos, setTempoRestanteSegundos] = useState<number>(
     TEMPO_PROVA_FINAL_MINUTOS * 60
   )
@@ -66,6 +67,7 @@ export default function ModalQuestionario({
     if (isOpen) {
       setRespostas({})
       setResultado(null)
+      setTentativasAntesResultado(null)
       setErro('')
       setTempoEsgotado(false)
       setTempoRestanteSegundos(TEMPO_PROVA_FINAL_MINUTOS * 60)
@@ -120,6 +122,7 @@ export default function ModalQuestionario({
         return
       }
 
+      const tentativasAntesEnvio = tentativasFeitas
       setEnviando(true)
 
       const payloadRespostas = Object.entries(respostas).map(([questao_id, alternativa_id]) => ({
@@ -140,11 +143,12 @@ export default function ModalQuestionario({
       }
 
       const res = data as ResultadoTentativa
+      setTentativasAntesResultado(tentativasAntesEnvio)
       setResultado(res)
       onSuccess(res)
 
       // Regra de reprovação após esgotar 2 tentativas
-      const novaContagem = tentativasFeitas + 1
+      const novaContagem = tentativasAntesEnvio + 1
       const aprovado = isProvaFinal ? res.percentual >= 70 : res.percentual >= 50
 
       if (!aprovado && novaContagem >= MAX_TENTATIVAS) {
@@ -176,6 +180,7 @@ export default function ModalQuestionario({
   const handleTentarNovamente = () => {
     setRespostas({})
     setResultado(null)
+    setTentativasAntesResultado(null)
     setErro('')
     setTempoEsgotado(false)
     setTempoRestanteSegundos(TEMPO_PROVA_FINAL_MINUTOS * 60)
@@ -218,7 +223,12 @@ export default function ModalQuestionario({
                 {isProvaFinal ? 'Avaliação Final de Certificação' : 'Atividade de Fixação'}
               </span>
               <span className="text-xs text-zinc-400 font-mono">
-                Tentativa {Math.min(tentativasFeitas + 1, MAX_TENTATIVAS)} de {MAX_TENTATIVAS}
+                Tentativa{' '}
+                {Math.min(
+                  (resultado ? tentativasAntesResultado ?? tentativasFeitas : tentativasFeitas) + 1,
+                  MAX_TENTATIVAS
+                )}{' '}
+                de {MAX_TENTATIVAS}
               </span>
             </div>
             <h1 className="text-sm sm:text-base font-bold text-white line-clamp-1">
@@ -332,7 +342,8 @@ export default function ModalQuestionario({
                 : resultado.percentual >= 50
 
               const esgotouDepoisDesteEnvio =
-                !aprovado && tentativasFeitas + 1 >= MAX_TENTATIVAS
+                !aprovado &&
+                (tentativasAntesResultado ?? tentativasFeitas) + 1 >= MAX_TENTATIVAS
 
               return (
                 <>

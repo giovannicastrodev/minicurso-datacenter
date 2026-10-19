@@ -59,9 +59,12 @@ export default function TimelineMoodle({
 
       const listaTentativasFix = qFixacao ? mapaTentativas.get(qFixacao.id) || [] : []
       const ultimaTentativaFix = listaTentativasFix[0] || null
+      const tentativaAprovadaFix = listaTentativasFix.find(
+        (tentativa) => tentativa.aprovado === true || tentativa.percentual >= 50
+      )
       const totalTentativasFix = listaTentativasFix.length
 
-      const fixacaoAprovada = !!(ultimaTentativaFix && (ultimaTentativaFix.percentual >= 50))
+      const fixacaoAprovada = !!tentativaAprovadaFix
       const esgotouFixacao = totalTentativasFix >= 2 && !fixacaoAprovada
 
       const materiaisAula = aula.materiais || []
@@ -95,7 +98,7 @@ export default function TimelineMoodle({
         } else if (esgotouFixacao) {
           descricao = 'Tentativas esgotadas (2/2). É obrigatório reler os slides do módulo para liberar novo envio.'
         } else if (fixacaoAprovada) {
-          descricao = `Aprovado com ${ultimaTentativaFix.acertos}/${ultimaTentativaFix.total_questoes} acertos (${ultimaTentativaFix.percentual}%).`
+          descricao = `Aprovado com ${tentativaAprovadaFix.acertos}/${tentativaAprovadaFix.total_questoes} acertos (${tentativaAprovadaFix.percentual}%).`
         }
 
         itens.push({
@@ -136,7 +139,10 @@ export default function TimelineMoodle({
       const ultimaTentativaFinal = listaTentativasFinal[0] || null
       const totalTentativasFinal = listaTentativasFinal.length
 
-      const aprovadoFinal = !!(ultimaTentativaFinal && (ultimaTentativaFinal.percentual >= 70))
+      const tentativaAprovadaFinal = listaTentativasFinal.find(
+        (tentativa) => tentativa.aprovado === true || tentativa.percentual >= 70
+      )
+      const aprovadoFinal = !!tentativaAprovadaFinal
       const esgotouFinal = totalTentativasFinal >= 2 && !aprovadoFinal
 
       let descricaoFinal = 'Avaliação abrangente de 5 questões. Exige mínimo de 70% de acertos para emissão de Certificado (máximo de 2 tentativas).'
@@ -145,7 +151,7 @@ export default function TimelineMoodle({
       } else if (esgotouFinal) {
         descricaoFinal = 'Limite de 2 tentativas esgotado sem atingir 70%. Conforme o regulamento, é obrigatório reiniciar a trilha de estudos.'
       } else if (aprovadoFinal) {
-        descricaoFinal = `Aprovado com ${ultimaTentativaFinal.percentual}% de aproveitamento. Certificado emitido com sucesso!`
+        descricaoFinal = `Aprovado com ${tentativaAprovadaFinal.percentual}% de aproveitamento. Certificado emitido com sucesso!`
       } else if (totalTentativasFinal === 1) {
         descricaoFinal = `Tentativa 1 com ${ultimaTentativaFinal.percentual}%. Você possui 1 tentativa restante.`
       }

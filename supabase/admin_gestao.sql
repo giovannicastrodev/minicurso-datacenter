@@ -47,6 +47,49 @@ UPDATE public.questionarios
 SET percentual_minimo = 70
 WHERE tipo = 'FINAL';
 
+-- 4.0 DATA AUTORITATIVA DE REINÍCIO DA TRILHA -------------------------
+ALTER TABLE public.perfis
+ADD COLUMN IF NOT EXISTS curso_reiniciado_em timestamptz;
+
+-- Migra as datas gravadas pela versão anterior nos metadados do usuário.
+UPDATE public.perfis p
+SET curso_reiniciado_em = (u.raw_user_meta_data ->> 'curso_reiniciado_em')::timestamptz
+FROM auth.users u
+WHERE u.id = p.id
+  AND p.curso_reiniciado_em IS NULL
+  AND u.raw_user_meta_data ->> 'curso_reiniciado_em'
+      ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$';
+
+CREATE OR REPLACE FUNCTION public.reiniciar_curso()
+RETURNS timestamptz
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_usuario uuid := auth.uid();
+  v_reiniciado_em timestamptz;
+BEGIN
+  IF v_usuario IS NULL THEN
+    RAISE EXCEPTION 'Usuário não autenticado';
+  END IF;
+
+  UPDATE public.perfis
+  SET curso_reiniciado_em = now()
+  WHERE id = v_usuario
+  RETURNING curso_reiniciado_em INTO v_reiniciado_em;
+
+  IF v_reiniciado_em IS NULL THEN
+    RAISE EXCEPTION 'Perfil do usuário não encontrado';
+  END IF;
+
+  RETURN v_reiniciado_em;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.reiniciar_curso() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.reiniciar_curso() TO authenticated;
+
 -- 4.1 FUNÇÃO DE ENVIO E CORREÇÃO COM LIMITE ESTRITO DE 2 TENTATIVAS ----
 CREATE OR REPLACE FUNCTION public.enviar_tentativa(p_questionario_id uuid, p_respostas jsonb)
 RETURNS jsonb
@@ -65,10 +108,16 @@ DECLARE
   v_aprovado boolean;
   v_tentativa uuid;
   v_total_tentativas_anteriores integer;
+  v_reiniciado_em timestamptz;
 BEGIN
   IF v_usuario IS NULL THEN
     RAISE EXCEPTION 'Usuário não autenticado';
   END IF;
+
+  SELECT p.curso_reiniciado_em
+  INTO v_reiniciado_em
+  FROM public.perfis p
+  WHERE p.id = v_usuario;
 
   SELECT q.tipo, coalesce(q.percentual_minimo, 70) INTO v_tipo, v_minimo
   FROM public.questionarios q
@@ -78,15 +127,51 @@ BEGIN
     RAISE EXCEPTION 'Questionário inexistente';
   END IF;
 
+  -- A avaliação final só pode ser enviada após aprovação em todos os módulos.
+  IF v_tipo = 'FINAL' AND (
+    NOT EXISTS (SELECT 1 FROM public.aulas)
+    OR EXISTS (
+      SELECT 1
+      FROM public.aulas a
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM public.questionarios q
+        WHERE q.aula_id = a.id
+          AND q.tipo = 'FIXACAO'
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.questionarios q
+        WHERE q.aula_id = a.id
+          AND q.tipo = 'FIXACAO'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM public.tentativas t
+            WHERE t.usuario_id = v_usuario
+              AND t.questionario_id = q.id
+              AND (v_reiniciado_em IS NULL OR t.enviada_em > v_reiniciado_em)
+              AND (t.aprovado IS TRUE OR t.percentual >= 50)
+          )
+      )
+    )
+  ) THEN
+    RAISE EXCEPTION 'Avaliação final bloqueada: conclua as atividades de fixação de todos os módulos primeiro.';
+  END IF;
+
   -- BLOQUEIO NO BANCO: Limite estrito de 2 tentativas
   SELECT count(*) INTO v_total_tentativas_anteriores
   FROM public.tentativas
-  WHERE usuario_id = v_usuario AND questionario_id = p_questionario_id;
+  WHERE usuario_id = v_usuario
+    AND questionario_id = p_questionario_id
+    AND (v_reiniciado_em IS NULL OR enviada_em > v_reiniciado_em);
 
   IF v_total_tentativas_anteriores >= 2 THEN
     IF NOT EXISTS (
       SELECT 1 FROM public.tentativas
-      WHERE usuario_id = v_usuario AND questionario_id = p_questionario_id AND aprovado = true
+      WHERE usuario_id = v_usuario
+        AND questionario_id = p_questionario_id
+        AND (v_reiniciado_em IS NULL OR enviada_em > v_reiniciado_em)
+        AND aprovado = true
     ) THEN
       RAISE EXCEPTION 'Limite de 2 tentativas esgotado para este questionário. Reinicie o curso ou releia o material para liberar novas tentativas.';
     END IF;
@@ -352,4 +437,3 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.obter_metricas_gestao() TO authenticated;
-
