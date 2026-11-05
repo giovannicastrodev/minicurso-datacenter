@@ -5,10 +5,13 @@
 -- Execute este script no SQL Editor do Supabase para habilitar o portal
 -- do gestor, gerenciamento de conteúdo (CRUD) e dashboards de métricas.
 
--- 1. ADICIONA COLUNA DE PAPEL NA TABELA DE PERFIS ---------------------
+-- 1. ADICIONA COLUNAS DE PAPEL E REINÍCIO NA TABELA DE PERFIS ---------
 ALTER TABLE public.perfis
 ADD COLUMN IF NOT EXISTS papel text NOT NULL DEFAULT 'aluno'
 CHECK (papel IN ('aluno', 'gestor'));
+
+ALTER TABLE public.perfis
+ADD COLUMN IF NOT EXISTS curso_reiniciado_em timestamptz;
 
 -- 2. ATUALIZA O GATILHO DE CRIAÇÃO AUTOMÁTICA DE PERFIL ---------------
 CREATE OR REPLACE FUNCTION public.criar_perfil()
@@ -47,49 +50,6 @@ UPDATE public.questionarios
 SET percentual_minimo = 70
 WHERE tipo = 'FINAL';
 
--- 4.0 DATA AUTORITATIVA DE REINÍCIO DA TRILHA -------------------------
-ALTER TABLE public.perfis
-ADD COLUMN IF NOT EXISTS curso_reiniciado_em timestamptz;
-
--- Migra as datas gravadas pela versão anterior nos metadados do usuário.
-UPDATE public.perfis p
-SET curso_reiniciado_em = (u.raw_user_meta_data ->> 'curso_reiniciado_em')::timestamptz
-FROM auth.users u
-WHERE u.id = p.id
-  AND p.curso_reiniciado_em IS NULL
-  AND u.raw_user_meta_data ->> 'curso_reiniciado_em'
-      ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$';
-
-CREATE OR REPLACE FUNCTION public.reiniciar_curso()
-RETURNS timestamptz
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_usuario uuid := auth.uid();
-  v_reiniciado_em timestamptz;
-BEGIN
-  IF v_usuario IS NULL THEN
-    RAISE EXCEPTION 'Usuário não autenticado';
-  END IF;
-
-  UPDATE public.perfis
-  SET curso_reiniciado_em = now()
-  WHERE id = v_usuario
-  RETURNING curso_reiniciado_em INTO v_reiniciado_em;
-
-  IF v_reiniciado_em IS NULL THEN
-    RAISE EXCEPTION 'Perfil do usuário não encontrado';
-  END IF;
-
-  RETURN v_reiniciado_em;
-END;
-$$;
-
-REVOKE ALL ON FUNCTION public.reiniciar_curso() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.reiniciar_curso() TO authenticated;
-
 -- 4.1 FUNÇÃO DE ENVIO E CORREÇÃO COM LIMITE ESTRITO DE 2 TENTATIVAS ----
 CREATE OR REPLACE FUNCTION public.enviar_tentativa(p_questionario_id uuid, p_respostas jsonb)
 RETURNS jsonb
@@ -107,17 +67,12 @@ DECLARE
   v_percentual numeric(5,2);
   v_aprovado boolean;
   v_tentativa uuid;
-  v_total_tentativas_anteriores integer;
   v_reiniciado_em timestamptz;
+  v_total_tentativas_anteriores integer;
 BEGIN
   IF v_usuario IS NULL THEN
     RAISE EXCEPTION 'Usuário não autenticado';
   END IF;
-
-  SELECT p.curso_reiniciado_em
-  INTO v_reiniciado_em
-  FROM public.perfis p
-  WHERE p.id = v_usuario;
 
   SELECT q.tipo, coalesce(q.percentual_minimo, 70) INTO v_tipo, v_minimo
   FROM public.questionarios q
@@ -127,51 +82,25 @@ BEGIN
     RAISE EXCEPTION 'Questionário inexistente';
   END IF;
 
-  -- A avaliação final só pode ser enviada após aprovação em todos os módulos.
-  IF v_tipo = 'FINAL' AND (
-    NOT EXISTS (SELECT 1 FROM public.aulas)
-    OR EXISTS (
-      SELECT 1
-      FROM public.aulas a
-      WHERE NOT EXISTS (
-        SELECT 1
-        FROM public.questionarios q
-        WHERE q.aula_id = a.id
-          AND q.tipo = 'FIXACAO'
-      )
-      OR EXISTS (
-        SELECT 1
-        FROM public.questionarios q
-        WHERE q.aula_id = a.id
-          AND q.tipo = 'FIXACAO'
-          AND NOT EXISTS (
-            SELECT 1
-            FROM public.tentativas t
-            WHERE t.usuario_id = v_usuario
-              AND t.questionario_id = q.id
-              AND (v_reiniciado_em IS NULL OR t.enviada_em > v_reiniciado_em)
-              AND (t.aprovado IS TRUE OR t.percentual >= 50)
-          )
-      )
-    )
-  ) THEN
-    RAISE EXCEPTION 'Avaliação final bloqueada: conclua as atividades de fixação de todos os módulos primeiro.';
-  END IF;
+  -- Consulta timestamp de reinício de curso do usuário
+  SELECT curso_reiniciado_em INTO v_reiniciado_em
+  FROM public.perfis
+  WHERE id = v_usuario;
 
-  -- BLOQUEIO NO BANCO: Limite estrito de 2 tentativas
+  -- BLOQUEIO NO BANCO: Limite estrito de 2 tentativas (considerando reinício)
   SELECT count(*) INTO v_total_tentativas_anteriores
   FROM public.tentativas
   WHERE usuario_id = v_usuario
     AND questionario_id = p_questionario_id
-    AND (v_reiniciado_em IS NULL OR enviada_em > v_reiniciado_em);
+    AND (v_reiniciado_em IS NULL OR enviada_em >= v_reiniciado_em);
 
   IF v_total_tentativas_anteriores >= 2 THEN
     IF NOT EXISTS (
       SELECT 1 FROM public.tentativas
       WHERE usuario_id = v_usuario
         AND questionario_id = p_questionario_id
-        AND (v_reiniciado_em IS NULL OR enviada_em > v_reiniciado_em)
         AND aprovado = true
+        AND (v_reiniciado_em IS NULL OR enviada_em >= v_reiniciado_em)
     ) THEN
       RAISE EXCEPTION 'Limite de 2 tentativas esgotado para este questionário. Reinicie o curso ou releia o material para liberar novas tentativas.';
     END IF;
@@ -229,6 +158,49 @@ BEGIN
   );
 END;
 $$;
+
+-- 4.2 FUNÇÃO DE REINÍCIO ATÔMICO DA TRILHA DE ESTUDOS (ALUNO) ----------
+CREATE OR REPLACE FUNCTION public.reiniciar_trilha_aluno()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_usuario uuid := auth.uid();
+  v_agora timestamptz := now();
+BEGIN
+  IF v_usuario IS NULL THEN
+    RAISE EXCEPTION 'Usuário não autenticado';
+  END IF;
+
+  -- 1. Atualiza timestamp de reinício na tabela de perfis
+  UPDATE public.perfis
+  SET curso_reiniciado_em = v_agora
+  WHERE id = v_usuario;
+
+  -- 2. Remove respostas de tentativas do usuário
+  DELETE FROM public.respostas
+  WHERE tentativa_id IN (
+    SELECT id FROM public.tentativas WHERE usuario_id = v_usuario
+  );
+
+  -- 3. Remove certificados anteriores
+  DELETE FROM public.certificados
+  WHERE usuario_id = v_usuario;
+
+  -- 4. Remove tentativas anteriores
+  DELETE FROM public.tentativas
+  WHERE usuario_id = v_usuario;
+
+  RETURN jsonb_build_object(
+    'sucesso', true,
+    'reiniciado_em', v_agora
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.reiniciar_trilha_aluno() TO authenticated;
 
 -- 5. POLÍTICAS DE ROW LEVEL SECURITY (RLS) PARA GESTÃO ----------------
 
@@ -437,3 +409,4 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.obter_metricas_gestao() TO authenticated;
+

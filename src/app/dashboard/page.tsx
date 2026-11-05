@@ -1,26 +1,18 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../lib/supabase'
-import { Aula, Questionario, Certificado, Tentativa, ResultadoTentativa } from '../../types/database'
-import ModalQuestionario from '../../components/ModalQuestionario'
-import ModalCertificado from '../../components/ModalCertificado'
-import PrimeiroAcessoView from '../../components/PrimeiroAcessoView'
+import { Aula, Questionario, Tentativa, Certificado, ResultadoTentativa } from '../../types/database'
 import TimelineMoodle from '../../components/TimelineMoodle'
 import VisualizadorAula from '../../components/VisualizadorAula'
+import PrimeiroAcessoView from '../../components/PrimeiroAcessoView'
+import ModalQuestionario from '../../components/ModalQuestionario'
+import ModalCertificado from '../../components/ModalCertificado'
 import IfspLogo from '../../components/ui/IfspLogo'
 import MicrosoftLogo from '../../components/ui/MicrosoftLogo'
-import {
-  IconAward,
-  IconLogOut,
-  IconSettings,
-  IconRefresh,
-  IconLock,
-  IconArrowRight,
-  IconPlay,
-} from '../../components/ui/Icons'
+import { IconAward, IconSettings, IconLogOut } from '../../components/ui/Icons'
 
 type VisaoPainel = 'apresentacao' | 'timeline' | 'aula'
 
@@ -44,8 +36,8 @@ export default function DashboardPage() {
   const [questionarioAtivo, setQuestionarioAtivo] = useState<Questionario | null>(null)
   const [modalCertificadoAberto, setModalCertificadoAberto] = useState(false)
 
-  // Carregamento dos dados da plataforma
-  const carregarDadosPlataforma = useCallback(async () => {
+  // Carregamento dos dados da plataforma - sem dependência em aulaAtivaId para evitar recarga de tela
+  const carregarDadosPlataforma = useCallback(async (forcarResetLocal = false) => {
     const {
       data: { session },
     } = await supabase.auth.getSession()
@@ -55,11 +47,13 @@ export default function DashboardPage() {
       return
     }
 
-    // Busca perfil e papel
+    const userId = session.user.id
+
+    // Busca perfil, papel e timestamp de reinício
     const { data: perfil } = await supabase
       .from('perfis')
       .select('nome, papel, curso_reiniciado_em')
-      .eq('id', session.user.id)
+      .eq('id', userId)
       .maybeSingle()
 
     if (perfil) {
@@ -67,20 +61,30 @@ export default function DashboardPage() {
       setIsGestor(perfil.papel === 'gestor')
     }
 
-    // Lê metadados pedagógicos
-    const meta = session.user.user_metadata || {}
-    const metaIniciado = !!meta.curso_iniciado
-    const metaMateriais = Array.isArray(meta.materiais_lidos) ? meta.materiais_lidos : []
+    // Identifica quando o curso foi reiniciado (se aplicável)
+    const reiniciadoEm =
+      perfil?.curso_reiniciado_em ||
+      session.user.user_metadata?.curso_reiniciado_em ||
+      localStorage.getItem(`curso_reiniciado_${userId}`)
 
-    const localIniciado = localStorage.getItem(`curso_iniciado_${session.user.id}`) === 'true'
-    const localMateriais = JSON.parse(
-      localStorage.getItem(`materiais_lidos_${session.user.id}`) || '[]'
-    )
+    // Determina materiais lidos de forma segura
+    let finalMateriais: string[] = []
+    if (!forcarResetLocal) {
+      const localStr = localStorage.getItem(`materiais_lidos_${userId}`)
+      const localMateriais: string[] = localStr ? JSON.parse(localStr) : []
+      const metaMateriais: string[] = Array.isArray(session.user.user_metadata?.materiais_lidos)
+        ? session.user.user_metadata.materiais_lidos
+        : []
 
-    const finalIniciado = metaIniciado || localIniciado
-    const finalMateriais = Array.from(new Set([...metaMateriais, ...localMateriais]))
+      // Se o curso foi reiniciado, não ressuscita materiais lidos do metadata antigo
+      if (reiniciadoEm) {
+        finalMateriais = localMateriais
+      } else {
+        finalMateriais = Array.from(new Set([...metaMateriais, ...localMateriais]))
+      }
+    }
 
-    setCursoIniciado(finalIniciado)
+    setCursoIniciado(true)
     setMateriaisLidos(finalMateriais)
 
     // Consulta de aulas
@@ -110,8 +114,8 @@ export default function DashboardPage() {
 
     if (dadosAulas) {
       setAulas(dadosAulas as unknown as Aula[])
-      if (!aulaAtivaId && dadosAulas.length > 0) {
-        setAulaAtivaId(dadosAulas[0].id)
+      if (dadosAulas.length > 0) {
+        setAulaAtivaId((prev) => prev || dadosAulas[0].id)
       }
     }
 
@@ -137,42 +141,48 @@ export default function DashboardPage() {
       setAvaliacaoFinal(dadosFinal as unknown as Questionario)
     }
 
-    // Consulta histórico de tentativas
+    // Consulta histórico de tentativas (filtrando estritamente pelo usuário autenticado)
     const { data: dadosTentativas } = await supabase
       .from('tentativas')
       .select('id, questionario_id, acertos, total_questoes, percentual, aprovado, enviada_em')
+      .eq('usuario_id', userId)
       .order('enviada_em', { ascending: false })
 
     if (dadosTentativas) {
-      const reiniciadoEm = perfil?.curso_reiniciado_em
       const tentativasValidas = reiniciadoEm
-        ? (dadosTentativas as Tentativa[]).filter(
-            (t) => new Date(t.enviada_em) > new Date(reiniciadoEm)
-          )
+        ? (dadosTentativas as Tentativa[]).filter((t) => {
+            return new Date(t.enviada_em).getTime() > new Date(reiniciadoEm).getTime()
+          })
         : (dadosTentativas as Tentativa[])
 
       setTentativas(tentativasValidas)
 
-      if (tentativasValidas.length > 0 || finalIniciado) {
-        setVisao('timeline')
-        setCursoIniciado(true)
-      } else {
-        setVisao('apresentacao')
+      if (tentativasValidas.length > 0) {
+        setVisao((prev) => (prev === 'apresentacao' ? 'timeline' : prev))
       }
+    } else {
+      setTentativas([])
     }
 
     // Consulta certificado
     const { data: dadosCert } = await supabase
       .from('certificados')
       .select('id, usuario_id, tentativa_id, codigo, emitido_em')
+      .eq('usuario_id', userId)
       .maybeSingle()
 
     if (dadosCert) {
-      setCertificado(dadosCert as Certificado)
+      const certificadoValido = reiniciadoEm
+        ? new Date(dadosCert.emitido_em).getTime() > new Date(reiniciadoEm).getTime()
+        : true
+
+      setCertificado(certificadoValido ? (dadosCert as Certificado) : null)
+    } else {
+      setCertificado(null)
     }
 
     setCarregando(false)
-  }, [router, aulaAtivaId])
+  }, [router])
 
   useEffect(() => {
     carregarDadosPlataforma()
@@ -243,41 +253,63 @@ export default function DashboardPage() {
   // Reiniciar todo o curso se reprovou 2 vezes na Prova Final
   const handleReiniciarCurso = async () => {
     const confirmou = window.confirm(
-      'Atenção: Ao reiniciar o curso, seu progresso nesta trilha será reiniciado para que você refaça os módulos e atividades do início. Deseja prosseguir?'
+      'Atenção: Ao reiniciar o curso, todo o seu progresso, histórico de atividades e leituras serão zerados para que você refaça a trilha desde o início. Deseja prosseguir?'
     )
     if (!confirmou) return
 
+    setCarregando(true)
+    const agora = new Date().toISOString()
     const {
       data: { session },
     } = await supabase.auth.getSession()
 
-    if (!session) {
-      window.alert(
-        'Não foi possível reiniciar o curso porque sua sessão expirou. Entre novamente e tente de novo.'
-      )
-      return
+    if (session) {
+      const userId = session.user.id
+
+      // 1. Armazena no localStorage para sincronização imediata
+      localStorage.setItem(`curso_reiniciado_${userId}`, agora)
+      localStorage.setItem(`materiais_lidos_${userId}`, JSON.stringify([]))
+
+      // 2. Chama RPC atômico no banco Supabase
+      const { error: rpcError } = await supabase.rpc('reiniciar_trilha_aluno')
+      if (rpcError) {
+        console.warn('RPC reiniciar_trilha_aluno indisponível, aplicando fallback direto:', rpcError)
+        // Fallback direto nas tabelas
+        await supabase
+          .from('perfis')
+          .update({ curso_reiniciado_em: agora })
+          .eq('id', userId)
+
+        await supabase
+          .from('tentativas')
+          .delete()
+          .eq('usuario_id', userId)
+
+        await supabase
+          .from('certificados')
+          .delete()
+          .eq('usuario_id', userId)
+      }
+
+      // 3. Atualiza os metadados do auth do usuário
+      await supabase.auth.updateUser({
+        data: {
+          curso_reiniciado_em: agora,
+          materiais_lidos: [],
+          curso_iniciado: true,
+        },
+      })
     }
 
-    const { error: progressError } = await supabase.auth.updateUser({
-      data: { materiais_lidos: [] },
-    })
-
-    if (progressError) {
-      window.alert(`Não foi possível limpar o progresso dos módulos: ${progressError.message}`)
-      return
-    }
-
-    const { error: resetError } = await supabase.rpc('reiniciar_curso')
-    if (resetError) {
-      window.alert(`Não foi possível registrar o reinício do curso: ${resetError.message}`)
-      return
-    }
-
-    localStorage.setItem(`materiais_lidos_${session.user.id}`, JSON.stringify([]))
+    // 4. Limpa estados da tela
     setMateriaisLidos([])
+    setTentativas([])
+    setCertificado(null)
     setQuestionarioAtivo(null)
     setVisao('timeline')
-    await carregarDadosPlataforma()
+
+    // 5. Recarrega dados com flag de reset
+    await carregarDadosPlataforma(true)
   }
 
   const handleAcessarAula = (aulaId: string) => {
@@ -296,38 +328,6 @@ export default function DashboardPage() {
     if (resultado.aprovado && questionarioAtivo?.tipo === 'FINAL') {
       setModalCertificadoAberto(true)
     }
-  }
-
-  const modulosConcluidos = useMemo(
-    () =>
-      aulas.length > 0 &&
-      aulas.every((aula) => {
-        const questionariosAula = Array.isArray(aula.questionarios)
-          ? aula.questionarios
-          : aula.questionarios
-            ? [aula.questionarios]
-            : []
-        const fixacao = questionariosAula.find((questionario) => questionario.tipo === 'FIXACAO')
-
-        return (
-          !!fixacao &&
-          tentativas.some(
-            (tentativa) =>
-              tentativa.questionario_id === fixacao.id &&
-              (tentativa.aprovado === true || tentativa.percentual >= 50)
-          )
-        )
-      }),
-    [aulas, tentativas]
-  )
-
-  const handleAbrirQuestionario = (questionario: Questionario) => {
-    if (questionario.tipo === 'FINAL' && !modulosConcluidos) {
-      window.alert('Conclua as atividades de fixação de todos os módulos antes de iniciar a Avaliação Final.')
-      return
-    }
-
-    setQuestionarioAtivo(questionario)
   }
 
   const aulaAtiva = useMemo(() => {
@@ -349,27 +349,17 @@ export default function DashboardPage() {
     }
   }, [aulaAtiva, tentativas])
 
-  // Estado da Avaliação Final
-  const { totalTentativasFinal, esgotouTentativasFinal } = useMemo(() => {
-    if (!avaliacaoFinal) {
-      return { totalTentativasFinal: 0, esgotouTentativasFinal: false }
-    }
-    const lista = tentativas.filter((t) => t.questionario_id === avaliacaoFinal.id)
-    const aprov = lista.some((t) => t.aprovado || t.percentual >= 70)
-    const esgotou = lista.length >= 2 && !aprov
-    return {
-      totalTentativasFinal: lista.length,
-      esgotouTentativasFinal: esgotou,
-    }
-  }, [avaliacaoFinal, tentativas])
+  const abrirQuestionario = (q: Questionario) => {
+    setQuestionarioAtivo(q)
+  }
 
   if (carregando) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
-        <div className="text-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-red-600 border-t-transparent mx-auto"></div>
-          <p className="mt-4 text-xs font-bold uppercase tracking-wider text-zinc-400">
-            Carregando ambiente educacional...
+      <div className="flex min-h-screen items-center justify-center bg-[#090b10] text-zinc-100">
+        <div className="text-center space-y-4">
+          <div className="h-9 w-9 animate-spin rounded-xs border-2 border-sky-400 border-t-transparent mx-auto" />
+          <p className="text-xs font-mono uppercase tracking-widest text-zinc-400">
+            Carregando ambiente técnico...
           </p>
         </div>
       </div>
@@ -377,30 +367,30 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100 pb-20">
-      {/* BARRA SUPERIOR DE NAVEGAÇÃO INSTITUCIONAL (IFSP + MICROSOFT / SUAP + FIAP STYLE) */}
-      <header className="sticky top-0 z-40 bg-zinc-950/95 border-b border-zinc-800 shadow-xl backdrop-blur-md">
+    <div className="min-h-screen bg-[#090b10] text-zinc-100 pb-20">
+      {/* BARRA SUPERIOR DE NAVEGAÇÃO INSTITUCIONAL */}
+      <header className="sticky top-0 z-40 bg-[#0d1017]/95 border-b border-zinc-800 shadow-xl backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-5">
-            <IfspLogo textColor="light" className="h-9" />
-            <div className="h-6 w-px bg-zinc-800 hidden sm:block"></div>
+            <IfspLogo textColor="light" className="h-8" />
+            <div className="h-5 w-px bg-zinc-800 hidden sm:block" />
             <div className="hidden sm:flex items-center gap-2">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400">
+              <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-sky-400">
                 Data Centers
               </span>
-              <MicrosoftLogo textColor="light" className="h-5" />
+              <MicrosoftLogo textColor="light" className="h-4" />
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Navegação Superior */}
+          <div className="flex items-center gap-2.5">
+            {/* Navegação Superior com Arestas Nítidas */}
             {cursoIniciado && (
-              <nav className="hidden md:flex items-center gap-1 rounded-xl bg-zinc-900 border border-zinc-800 p-1">
+              <nav className="hidden md:flex items-center gap-1 rounded-sm bg-[#090b10] border border-zinc-800 p-1">
                 <button
                   onClick={() => setVisao('timeline')}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  className={`rounded-sm px-3.5 py-1.5 text-xs font-bold transition ${
                     visao === 'timeline'
-                      ? 'bg-red-600 text-white shadow-xs'
+                      ? 'bg-sky-500 text-zinc-950 shadow-xs'
                       : 'text-zinc-400 hover:text-white'
                   }`}
                 >
@@ -408,9 +398,9 @@ export default function DashboardPage() {
                 </button>
                 <button
                   onClick={() => setVisao('aula')}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  className={`rounded-sm px-3.5 py-1.5 text-xs font-bold transition ${
                     visao === 'aula'
-                      ? 'bg-red-600 text-white shadow-xs'
+                      ? 'bg-sky-500 text-zinc-950 shadow-xs'
                       : 'text-zinc-400 hover:text-white'
                   }`}
                 >
@@ -418,13 +408,13 @@ export default function DashboardPage() {
                 </button>
                 <button
                   onClick={() => setVisao('apresentacao')}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  className={`rounded-sm px-3.5 py-1.5 text-xs font-bold transition ${
                     visao === 'apresentacao'
-                      ? 'bg-red-600 text-white shadow-xs'
+                      ? 'bg-sky-500 text-zinc-950 shadow-xs'
                       : 'text-zinc-400 hover:text-white'
                   }`}
                 >
-                  Apresentação
+                  Visão Geral
                 </button>
               </nav>
             )}
@@ -432,7 +422,7 @@ export default function DashboardPage() {
             {certificado && (
               <button
                 onClick={() => setModalCertificadoAberto(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-700 px-3.5 py-1.5 text-xs font-bold text-white shadow-lg hover:bg-emerald-600 transition"
+                className="inline-flex items-center gap-1.5 rounded-sm bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-md hover:bg-emerald-500 transition"
               >
                 <IconAward className="w-4 h-4" />
                 <span>Certificado</span>
@@ -442,16 +432,16 @@ export default function DashboardPage() {
             {isGestor && (
               <Link
                 href="/gestao"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs font-bold text-zinc-300 hover:border-red-500 hover:text-white transition"
+                className="inline-flex items-center gap-1.5 rounded-sm border border-zinc-800 bg-[#090b10] px-3 py-1.5 text-xs font-bold text-zinc-300 hover:border-sky-400 hover:text-sky-300 transition"
               >
-                <IconSettings className="w-4 h-4" />
+                <IconSettings className="w-4 h-4 text-sky-400" />
                 <span className="hidden sm:inline">Painel do Gestor</span>
               </Link>
             )}
 
             <button
               onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-zinc-400 hover:bg-red-950/60 hover:text-red-400 transition"
+              className="inline-flex items-center gap-1.5 rounded-sm border border-zinc-800 bg-[#090b10] px-3 py-1.5 text-xs font-semibold text-zinc-400 hover:bg-zinc-800 hover:text-white transition"
               title="Encerrar Sessão"
             >
               <IconLogOut className="w-4 h-4" />
@@ -462,36 +452,36 @@ export default function DashboardPage() {
 
         {/* Abas Mobile */}
         {cursoIniciado && (
-          <div className="flex md:hidden border-t border-zinc-800 bg-zinc-950 px-4 py-2 gap-2 overflow-x-auto">
+          <div className="flex md:hidden border-t border-zinc-800 bg-[#090b10] px-4 py-2 gap-2 overflow-x-auto">
             <button
               onClick={() => setVisao('timeline')}
-              className={`rounded-lg px-3 py-1 text-xs font-bold shrink-0 ${
+              className={`rounded-sm px-3 py-1.5 text-xs font-bold shrink-0 ${
                 visao === 'timeline'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-zinc-900 text-zinc-400 border border-zinc-800'
+                  ? 'bg-sky-500 text-zinc-950'
+                  : 'bg-[#11141c] text-zinc-400 border border-zinc-800'
               }`}
             >
               Linha do Tempo
             </button>
             <button
               onClick={() => setVisao('aula')}
-              className={`rounded-lg px-3 py-1 text-xs font-bold shrink-0 ${
+              className={`rounded-sm px-3 py-1.5 text-xs font-bold shrink-0 ${
                 visao === 'aula'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-zinc-900 text-zinc-400 border border-zinc-800'
+                  ? 'bg-sky-500 text-zinc-950'
+                  : 'bg-[#11141c] text-zinc-400 border border-zinc-800'
               }`}
             >
               Módulo Atual
             </button>
             <button
               onClick={() => setVisao('apresentacao')}
-              className={`rounded-lg px-3 py-1 text-xs font-bold shrink-0 ${
+              className={`rounded-sm px-3 py-1.5 text-xs font-bold shrink-0 ${
                 visao === 'apresentacao'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-zinc-900 text-zinc-400 border border-zinc-800'
+                  ? 'bg-sky-500 text-zinc-950'
+                  : 'bg-[#11141c] text-zinc-400 border border-zinc-800'
               }`}
             >
-              Apresentação
+              Visão Geral
             </button>
           </div>
         )}
@@ -501,10 +491,10 @@ export default function DashboardPage() {
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
         {/* BANNER DE CERTIFICAÇÃO (QUANDO APROVADO) */}
         {certificado && visao !== 'apresentacao' && (
-          <div className="rounded-3xl border border-emerald-800/80 bg-gradient-to-r from-emerald-950/80 via-zinc-900 to-emerald-950/60 p-6 shadow-2xl">
+          <div className="rounded-sm border border-emerald-800/80 bg-gradient-to-r from-emerald-950/80 via-zinc-900 to-emerald-950/60 p-6 shadow-2xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-1">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-0.5 text-xs font-extrabold text-emerald-400 uppercase tracking-wider">
+                <span className="inline-flex items-center gap-1.5 rounded-sm bg-emerald-500/20 px-2.5 py-0.5 text-xs font-extrabold text-emerald-400 uppercase tracking-wider">
                   <IconAward className="w-3.5 h-3.5" />
                   <span>Aprovado no Minicurso</span>
                 </span>
@@ -519,7 +509,7 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => setModalCertificadoAberto(true)}
-                className="self-start sm:self-center rounded-xl bg-emerald-600 px-5 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xl hover:bg-emerald-500 transition"
+                className="self-start sm:self-center rounded-sm bg-emerald-600 px-5 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xl hover:bg-emerald-500 transition"
               >
                 Visualizar e Imprimir Certificado
               </button>
@@ -535,7 +525,7 @@ export default function DashboardPage() {
           />
         )}
 
-        {/* CENÁRIO 2: LINHA DO TEMPO (MOODLE / SUAP) */}
+        {/* CENÁRIO 2: LINHA DO TEMPO */}
         {visao === 'timeline' && (
           <TimelineMoodle
             aulas={aulas}
@@ -543,7 +533,7 @@ export default function DashboardPage() {
             tentativas={tentativas}
             materiaisLidos={materiaisLidos}
             onAcessarAula={handleAcessarAula}
-            onAbrirQuestionario={handleAbrirQuestionario}
+            onAbrirQuestionario={abrirQuestionario}
             onReiniciarCurso={handleReiniciarCurso}
           />
         )}
@@ -557,86 +547,10 @@ export default function DashboardPage() {
             tentativaFixacao={tentativaAulaAtiva}
             totalTentativasFixacao={totalTentativasFixacao}
             onMarcarMaterialLido={handleMarcarMaterialLido}
-            onAbrirQuestionario={handleAbrirQuestionario}
+            onAbrirQuestionario={abrirQuestionario}
             onSelecionarAula={(id) => setAulaAtivaId(id)}
             onVoltarTimeline={() => setVisao('timeline')}
           />
-        )}
-
-        {/* SEÇÃO FINAL: CARD DA AVALIAÇÃO FINAL (COM BLOQUEIO ESTRITO DE 2 TENTATIVAS) */}
-        {visao === 'timeline' && avaliacaoFinal && (
-          <section className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6 sm:p-8 shadow-xl">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="space-y-2 max-w-2xl">
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-red-600 px-3 py-0.5 text-[11px] font-bold text-white uppercase tracking-wider">
-                    Etapa Final
-                  </span>
-                  <span className="text-xs font-semibold text-zinc-400">
-                    Aprovação mínima: 70% • Limite: 2 tentativas
-                  </span>
-                </div>
-
-                <h3 className="text-xl font-bold text-white">{avaliacaoFinal.titulo}</h3>
-                <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-                  Avaliação teórica abrangente de 5 questões cobrindo todos os módulos. Tempo máximo:
-                  50 minutos.
-                </p>
-
-                {!modulosConcluidos && !esgotouTentativasFinal && (
-                  <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400">
-                    <IconLock className="h-4 w-4 shrink-0" />
-                    <span>
-                      Conclua as atividades de fixação de todos os módulos para desbloquear a avaliação.
-                    </span>
-                  </div>
-                )}
-
-                {esgotouTentativasFinal && (
-                  <div className="rounded-xl border border-red-800/80 bg-red-950/60 p-3 text-xs text-red-300 font-semibold flex items-center gap-2">
-                    <IconLock className="w-4 h-4 text-red-500 shrink-0" />
-                    <span>
-                      Você esgotou suas 2 tentativas na Avaliação Final sem atingir a nota mínima de 70%.
-                      Para obter o certificado, é obrigatório reiniciar a trilha de estudos.
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className="shrink-0">
-                {esgotouTentativasFinal ? (
-                  <button
-                    onClick={handleReiniciarCurso}
-                    className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-6 py-3 text-xs sm:text-sm font-bold text-white shadow-xl hover:bg-red-700 transition"
-                  >
-                    <IconRefresh className="w-4 h-4" />
-                    <span>Reiniciar Trilha de Estudos</span>
-                  </button>
-                ) : !modulosConcluidos ? (
-                  <button
-                    type="button"
-                    disabled
-                    className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950 px-6 py-3 text-xs font-bold text-zinc-600 sm:text-sm"
-                  >
-                    <IconLock className="h-4 w-4" />
-                    <span>Avaliação Bloqueada</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleAbrirQuestionario(avaliacaoFinal)}
-                    className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-6 py-3 text-xs sm:text-sm font-bold text-white shadow-xl hover:bg-red-700 transition"
-                  >
-                    <span>
-                      {totalTentativasFinal > 0
-                        ? 'Refazer Avaliação Final'
-                        : 'Iniciar Avaliação Final'}
-                    </span>
-                    <IconArrowRight className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </section>
         )}
       </main>
 

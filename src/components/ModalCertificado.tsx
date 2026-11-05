@@ -33,12 +33,12 @@ export default function ModalCertificado({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-3 sm:p-6 backdrop-blur-md overflow-y-auto">
-      <div className="relative max-h-[95vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-zinc-950 border border-zinc-800 p-6 sm:p-8 shadow-2xl">
+      <div className="relative max-h-[95vh] w-full max-w-4xl overflow-y-auto rounded-sm bg-[#11141c] border border-zinc-800 p-6 sm:p-8 shadow-2xl">
         {/* BARRA SUPERIOR DE AÇÕES */}
         <div className="flex items-center justify-between border-b border-zinc-800 pb-4 print:hidden">
           <div className="flex items-center gap-2">
-            <IconAward className="w-5 h-5 text-red-500" />
-            <h2 className="text-sm sm:text-base font-bold text-white uppercase tracking-wider">
+            <IconAward className="w-5 h-5 text-sky-400" />
+            <h2 className="text-xs sm:text-sm font-mono font-bold text-white uppercase tracking-wider">
               Certificado Oficial de Conclusão
             </h2>
           </div>
@@ -46,7 +46,7 @@ export default function ModalCertificado({
           <div className="flex items-center gap-2">
             <button
               onClick={handleImprimir}
-              className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-lg hover:bg-red-700 transition"
+              className="inline-flex items-center gap-2 rounded-sm bg-sky-500 px-4 py-2 text-xs font-bold text-zinc-950 shadow-lg hover:bg-sky-400 transition"
             >
               <IconPrinter className="w-4 h-4" />
               <span>Imprimir / Salvar PDF</span>
@@ -54,7 +54,7 @@ export default function ModalCertificado({
 
             <button
               onClick={onClose}
-              className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 transition"
+              className="rounded-sm border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-700 transition"
             >
               Fechar
             </button>
@@ -62,20 +62,20 @@ export default function ModalCertificado({
         </div>
 
         {/* ÁREA DO CERTIFICADO OFICIAL INSTITUCIONAL */}
-        <div className="mt-6 border-8 border-double border-zinc-900 bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 p-8 sm:p-14 text-center text-zinc-100 shadow-2xl rounded-2xl relative overflow-hidden print:bg-white print:text-black print:border-black">
+        <div className="mt-6 border-4 border-double border-zinc-800 bg-gradient-to-b from-[#090b10] via-[#0d1017] to-[#090b10] p-8 sm:p-14 text-center text-zinc-100 shadow-2xl rounded-sm relative overflow-hidden print:bg-white print:text-black print:border-black">
           {/* Cabeçalho com as marcas oficiais */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 border-b border-zinc-800 pb-8 print:border-black">
-            <IfspLogo textColor="light" className="h-12" />
+            <IfspLogo textColor="light" className="h-11" />
             <div className="flex items-center gap-2.5">
-              <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-400">
+              <span className="text-[10px] font-mono uppercase font-bold tracking-widest text-zinc-400">
                 Cooperação Técnica
               </span>
-              <MicrosoftLogo textColor="light" className="h-6" />
+              <MicrosoftLogo textColor="light" className="h-5" />
             </div>
           </div>
 
           <div className="my-8 space-y-2">
-            <span className="text-[11px] font-mono uppercase tracking-widest text-red-500 font-bold">
+            <span className="text-[11px] font-mono uppercase tracking-widest text-sky-400 font-bold">
               República Federativa do Brasil • Ministério da Educação
             </span>
             <h1 className="text-2xl sm:text-4xl font-serif font-extrabold text-white tracking-wide print:text-black">
@@ -89,7 +89,7 @@ export default function ModalCertificado({
               Certificamos para os devidos fins de direito que
             </p>
 
-            <p className="text-2xl sm:text-3xl font-serif font-bold text-red-400 underline decoration-red-700 underline-offset-8 print:text-black">
+            <p className="text-2xl sm:text-3xl font-serif font-bold text-sky-400 underline decoration-sky-600 underline-offset-8 print:text-black">
               {nomeAluno || 'Estudante'}
             </p>
 
@@ -107,7 +107,7 @@ export default function ModalCertificado({
           {/* Metadados Técnicos de Rodapé */}
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6 border-t border-zinc-800 pt-8 text-left text-xs text-zinc-400 print:border-black print:text-black">
             <div>
-              <p className="font-bold text-zinc-200 print:text-black uppercase tracking-wider text-[10px]">
+              <p className="font-bold text-zinc-200 print:text-black uppercase tracking-wider text-[10px] font-mono">
                 Carga Horária
               </p>
               <p className="mt-1 font-semibold text-zinc-300 print:text-black">
@@ -116,17 +116,17 @@ export default function ModalCertificado({
             </div>
 
             <div>
-              <p className="font-bold text-zinc-200 print:text-black uppercase tracking-wider text-[10px]">
+              <p className="font-bold text-zinc-200 print:text-black uppercase tracking-wider text-[10px] font-mono">
                 Data de Emissão
               </p>
               <p className="mt-1 font-semibold text-zinc-300 print:text-black">{dataFormatada}</p>
             </div>
 
             <div>
-              <p className="font-bold text-zinc-200 print:text-black uppercase tracking-wider text-[10px]">
+              <p className="font-bold text-zinc-200 print:text-black uppercase tracking-wider text-[10px] font-mono">
                 Código de Autenticidade
               </p>
-              <p className="mt-1 font-mono font-bold text-red-400 print:text-black">
+              <p className="mt-1 font-mono font-bold text-sky-400 print:text-black">
                 {certificado.codigo}
               </p>
             </div>

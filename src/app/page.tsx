@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import Link from 'next/link'
@@ -13,6 +13,11 @@ export default function LoginPage() {
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(false)
+
+  // Garante que o botão nunca fique preso em "Autenticando..." ao retornar da dashboard ou logout
+  useEffect(() => {
+    setCarregando(false)
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,12 +33,13 @@ export default function LoginPage() {
       setErro('Não foi possível realizar a autenticação. Verifique suas credenciais.')
       setCarregando(false)
     } else {
+      setCarregando(false)
       router.push('/dashboard')
     }
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#0d0e12] px-4 sm:px-6 lg:px-8 text-zinc-100">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#090b10] px-4 sm:px-6 lg:px-8 text-zinc-100">
       {/* Logos de Identidade no Topo */}
       <div className="mb-8 flex items-center justify-center gap-6">
         <IfspLogo className="h-9 w-auto" />
@@ -41,47 +47,50 @@ export default function LoginPage() {
         <MicrosoftLogo className="h-6 w-auto" />
       </div>
 
-      <div className="w-full max-w-md space-y-8 rounded-2xl bg-[#16181e] p-8 shadow-2xl border border-zinc-800/80">
-        <div>
-          <h2 className="text-center text-2xl font-bold tracking-tight text-white">
+      <div className="w-full max-w-md space-y-7 rounded-sm bg-[#11141c] p-8 shadow-2xl border border-zinc-800/80">
+        <div className="border-b border-zinc-800/80 pb-5">
+          <span className="text-[10px] font-mono uppercase tracking-widest text-sky-400">
+            Ambiente de Aprendizado
+          </span>
+          <h2 className="mt-1 text-2xl font-bold tracking-tight text-white">
             Portal do Minicurso
           </h2>
-          <p className="mt-2 text-center text-sm text-zinc-400">
-            Acesse a plataforma de estudo de Operação em Data Centers
+          <p className="mt-1 text-xs text-zinc-400">
+            Acesse a plataforma técnica de Operação em Data Centers
           </p>
         </div>
 
         {erro && (
-          <div className="rounded-lg bg-red-950/60 p-4 text-sm font-medium text-red-300 border border-red-800/50">
+          <div className="rounded-sm bg-red-950/60 p-3.5 text-xs font-medium text-red-300 border-l-2 border-red-500">
             {erro}
           </div>
         )}
 
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+        <form className="space-y-5" onSubmit={handleLogin}>
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                E-mail
+              <label className="block text-[11px] font-mono uppercase tracking-wider text-zinc-400">
+                E-mail Institucional / Pessoal
               </label>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-2 block w-full rounded-xl border border-zinc-800 bg-[#0c0d10] px-4 py-3 text-zinc-100 placeholder-zinc-600 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 sm:text-sm transition-all"
+                className="mt-1.5 block w-full rounded-sm border border-zinc-800 bg-[#090b10] px-3.5 py-2.5 text-zinc-100 placeholder-zinc-600 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400 text-xs sm:text-sm transition-all"
                 placeholder="aluno@ifsp.edu.br"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                Senha
+              <label className="block text-[11px] font-mono uppercase tracking-wider text-zinc-400">
+                Senha de Acesso
               </label>
               <input
                 type="password"
                 required
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
-                className="mt-2 block w-full rounded-xl border border-zinc-800 bg-[#0c0d10] px-4 py-3 text-zinc-100 placeholder-zinc-600 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 sm:text-sm transition-all"
+                className="mt-1.5 block w-full rounded-sm border border-zinc-800 bg-[#090b10] px-3.5 py-2.5 text-zinc-100 placeholder-zinc-600 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400 text-xs sm:text-sm transition-all"
                 placeholder="••••••••"
               />
             </div>
@@ -91,17 +100,17 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={carregando}
-              className="flex w-full justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-red-600/20 transition-all hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex w-full justify-center rounded-sm bg-sky-500 px-4 py-3 text-xs sm:text-sm font-bold text-zinc-950 shadow-md shadow-sky-500/20 transition-all hover:bg-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {carregando ? 'Autenticando...' : 'Entrar na Plataforma'}
             </button>
           </div>
         </form>
 
-        <p className="text-center text-sm text-zinc-400">
+        <p className="text-center text-xs text-zinc-400 pt-2 border-t border-zinc-800/80">
           Ainda não tem acesso?{' '}
-          <Link href="/cadastro" className="font-semibold text-red-500 hover:text-red-400 transition-colors">
-            Crie sua conta aqui
+          <Link href="/cadastro" className="font-semibold text-sky-400 hover:text-sky-300 transition-colors">
+            Cadastre-se aqui
           </Link>
         </p>
       </div>

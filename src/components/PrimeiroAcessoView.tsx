@@ -22,29 +22,29 @@ export default function PrimeiroAcessoView({
 }: PrimeiroAcessoViewProps) {
   return (
     <div className="mx-auto max-w-5xl space-y-12 py-6">
-      {/* BANNER HERO INSTITUCIONAL (IFSP + MICROSOFT / SUAP + FIAP STYLE) */}
-      <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black p-8 sm:p-14 text-white shadow-2xl">
+      {/* BANNER HERO INSTITUCIONAL */}
+      <div className="relative overflow-hidden rounded-sm border border-zinc-800 bg-gradient-to-br from-[#0c0f17] via-[#11141c] to-[#090b10] p-8 sm:p-14 text-white shadow-2xl">
         <div className="relative z-10 space-y-6 max-w-3xl">
           {/* Header com os Logos Oficiais */}
           <div className="flex flex-wrap items-center gap-6 border-b border-zinc-800 pb-6">
-            <IfspLogo textColor="light" className="h-11" />
-            <div className="h-6 w-px bg-zinc-800 hidden sm:block"></div>
+            <IfspLogo textColor="light" className="h-10" />
+            <div className="h-6 w-px bg-zinc-800 hidden sm:block" />
             <div className="flex items-center gap-2">
-              <span className="text-[11px] uppercase tracking-wider text-zinc-400 font-semibold">
-                Em parceria com
+              <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">
+                Em colaboração com
               </span>
-              <MicrosoftLogo textColor="light" className="h-6" />
+              <MicrosoftLogo textColor="light" className="h-5" />
             </div>
           </div>
 
           <div className="space-y-3">
-            <span className="inline-block rounded-full bg-red-600 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-white">
+            <span className="inline-block rounded-xs bg-sky-950/80 border border-sky-800 px-3 py-0.5 text-[11px] font-mono font-bold uppercase tracking-wider text-sky-400">
               Práticas em Sociedade 3 • IFSP Hortolândia
             </span>
 
             <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight text-white">
               Capacitação Profissional em <br />
-              <span className="text-red-500">Operação de Data Centers</span>
+              <span className="text-sky-400">Operação de Data Centers</span>
             </h1>
 
             <p className="text-sm sm:text-base text-zinc-300 leading-relaxed max-w-2xl">
@@ -58,7 +58,7 @@ export default function PrimeiroAcessoView({
           <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <button
               onClick={onIniciarCurso}
-              className="inline-flex items-center justify-center gap-2.5 rounded-2xl bg-red-600 px-8 py-4 text-sm sm:text-base font-extrabold text-white shadow-xl shadow-red-950/50 hover:bg-red-700 hover:scale-[1.01] active:scale-[0.99] transition"
+              className="inline-flex items-center justify-center gap-2.5 rounded-sm bg-sky-500 px-8 py-3.5 text-sm sm:text-base font-bold text-zinc-950 shadow-xl shadow-sky-500/20 hover:bg-sky-400 transition"
             >
               <span>Iniciar Trilha de Estudos</span>
               <IconArrowRight className="w-5 h-5" />
@@ -66,13 +66,16 @@ export default function PrimeiroAcessoView({
           </div>
         </div>
 
-        {/* Glow decorativo de fundo sutil */}
-        <div className="absolute -right-20 -top-20 h-80 w-80 rounded-full bg-red-600/10 blur-3xl pointer-events-none"></div>
+        {/* Glow decorativo técnico de fundo */}
+        <div className="absolute -right-20 -top-20 h-80 w-80 rounded-full bg-sky-500/10 blur-3xl pointer-events-none" />
       </div>
 
       {/* METODOLOGIA DE ENSINO E PROGRESSÃO */}
       <section className="space-y-4">
         <div>
+          <span className="text-[10px] font-mono uppercase tracking-widest text-sky-400">
+            Estrutura
+          </span>
           <h2 className="text-xl font-bold text-zinc-100 uppercase tracking-wide">
             Metodologia e Diretrizes da Trilha
           </h2>
@@ -82,8 +85,8 @@ export default function PrimeiroAcessoView({
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-950/60 border border-red-900 text-red-500 font-bold text-sm">
+          <div className="rounded-sm border border-zinc-800 bg-[#11141c] p-5 space-y-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xs bg-sky-950/60 border border-sky-800 text-sky-400 font-mono font-bold text-sm">
               01
             </div>
             <h3 className="text-sm font-bold text-white">Leitura de Slides (16:9)</h3>
@@ -92,8 +95,8 @@ export default function PrimeiroAcessoView({
             </p>
           </div>
 
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-950/60 border border-red-900 text-red-500 font-bold text-sm">
+          <div className="rounded-sm border border-zinc-800 bg-[#11141c] p-5 space-y-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xs bg-sky-950/60 border border-sky-800 text-sky-400 font-mono font-bold text-sm">
               02
             </div>
             <h3 className="text-sm font-bold text-white">Vídeo Complementar</h3>
@@ -102,8 +105,8 @@ export default function PrimeiroAcessoView({
             </p>
           </div>
 
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-950/60 border border-red-900 text-red-500 font-bold text-sm">
+          <div className="rounded-sm border border-zinc-800 bg-[#11141c] p-5 space-y-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xs bg-sky-950/60 border border-sky-800 text-sky-400 font-mono font-bold text-sm">
               03
             </div>
             <h3 className="text-sm font-bold text-white">Atividades de Fixação</h3>
@@ -112,8 +115,8 @@ export default function PrimeiroAcessoView({
             </p>
           </div>
 
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-950/60 border border-red-900 text-red-500 font-bold text-sm">
+          <div className="rounded-sm border border-zinc-800 bg-[#11141c] p-5 space-y-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xs bg-sky-950/60 border border-sky-800 text-sky-400 font-mono font-bold text-sm">
               04
             </div>
             <h3 className="text-sm font-bold text-white">Avaliação Final (70%)</h3>
@@ -126,17 +129,22 @@ export default function PrimeiroAcessoView({
 
       {/* CONTEÚDO PROGRAMÁTICO DOS MÓDULOS */}
       <section className="space-y-4">
-        <h2 className="text-xl font-bold text-zinc-100 uppercase tracking-wide">
-          Grade Curricular do Minicurso
-        </h2>
+        <div>
+          <span className="text-[10px] font-mono uppercase tracking-widest text-sky-400">
+            Ementa
+          </span>
+          <h2 className="text-xl font-bold text-zinc-100 uppercase tracking-wide">
+            Grade Curricular do Minicurso
+          </h2>
+        </div>
 
         <div className="space-y-3">
-          <div className="flex items-start gap-4 rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-zinc-300 font-mono font-bold text-sm">
+          <div className="flex items-start gap-4 rounded-sm border border-zinc-800 bg-[#11141c] p-5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xs bg-[#090b10] border border-zinc-800 text-sky-400 font-mono font-bold text-sm">
               M1
             </span>
             <div className="space-y-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-red-500">Módulo 1</span>
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-sky-400">Módulo 1</span>
               <h3 className="text-sm font-bold text-white">
                 Fundamentos de Infraestrutura de Centros de Dados e Missão Crítica
               </h3>
@@ -146,12 +154,12 @@ export default function PrimeiroAcessoView({
             </div>
           </div>
 
-          <div className="flex items-start gap-4 rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-zinc-300 font-mono font-bold text-sm">
+          <div className="flex items-start gap-4 rounded-sm border border-zinc-800 bg-[#11141c] p-5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xs bg-[#090b10] border border-zinc-800 text-sky-400 font-mono font-bold text-sm">
               M2
             </span>
             <div className="space-y-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-red-500">Módulo 2</span>
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-sky-400">Módulo 2</span>
               <h3 className="text-sm font-bold text-white">
                 Climatização de Precisão (HVAC), Confinamento e Métrica de Eficiência (PUE)
               </h3>
@@ -161,12 +169,12 @@ export default function PrimeiroAcessoView({
             </div>
           </div>
 
-          <div className="flex items-start gap-4 rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-zinc-300 font-mono font-bold text-sm">
+          <div className="flex items-start gap-4 rounded-sm border border-zinc-800 bg-[#11141c] p-5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xs bg-[#090b10] border border-zinc-800 text-sky-400 font-mono font-bold text-sm">
               M3
             </span>
             <div className="space-y-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-red-500">Módulo 3</span>
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-sky-400">Módulo 3</span>
               <h3 className="text-sm font-bold text-white">
                 Segurança Física, Diretrizes EHS e Rotinas de Checklist Operacional
               </h3>
@@ -179,9 +187,9 @@ export default function PrimeiroAcessoView({
       </section>
 
       {/* CTA INFERIOR */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-3xl border border-zinc-800 bg-zinc-900 p-8">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-sm border border-zinc-800 bg-[#11141c] p-7">
         <div>
-          <h3 className="text-lg font-bold text-white">Tudo pronto para começar?</h3>
+          <h3 className="text-base font-bold text-white">Tudo pronto para começar?</h3>
           <p className="text-xs text-zinc-400 mt-1">
             Seu progresso será registrado e persistido automaticamente a cada etapa concluída.
           </p>
@@ -189,7 +197,7 @@ export default function PrimeiroAcessoView({
 
         <button
           onClick={onIniciarCurso}
-          className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-6 py-3 text-xs sm:text-sm font-bold text-white hover:bg-red-700 transition"
+          className="inline-flex items-center gap-2 rounded-sm bg-sky-500 px-6 py-2.5 text-xs sm:text-sm font-bold text-zinc-950 hover:bg-sky-400 transition"
         >
           <span>Acessar Linha do Tempo</span>
           <IconArrowRight className="w-4 h-4" />

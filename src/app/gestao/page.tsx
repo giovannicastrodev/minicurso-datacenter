@@ -8,6 +8,17 @@ import { Aula, Questionario, MetricasGestao, Perfil } from '../../types/database
 import PainelAnalytics from '../../components/gestao/PainelAnalytics'
 import GerenciadorAulas from '../../components/gestao/GerenciadorAulas'
 import GerenciadorQuestionarios from '../../components/gestao/GerenciadorQuestionarios'
+import IfspLogo from '../../components/ui/IfspLogo'
+import MicrosoftLogo from '../../components/ui/MicrosoftLogo'
+import {
+  IconBarChart,
+  IconBookOpen,
+  IconFileText,
+  IconSettings,
+  IconGraduationCap,
+  IconLogOut,
+  IconLock,
+} from '../../components/ui/Icons'
 
 type AbaGestao = 'analytics' | 'aulas' | 'questionarios'
 
@@ -104,7 +115,9 @@ export default function GestaoPage() {
       alert('Perfil promovido para Gestor com sucesso! Recarregando...')
       carregarDadosGestor()
     } else {
-      alert(`Para promover seu usuário a Gestor, execute o script 'supabase/admin_gestao.sql' no Supabase! Detalhes: ${error.message}`)
+      alert(
+        `Para promover seu usuário a Gestor, execute a migração 'supabase/admin_gestao.sql' no Supabase! Detalhes: ${error.message}`
+      )
     }
   }
 
@@ -115,10 +128,12 @@ export default function GestaoPage() {
 
   if (carregando) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-purple-700 border-t-transparent mx-auto"></div>
-          <p className="mt-4 text-sm font-semibold text-gray-700">Carregando portal de gestão...</p>
+      <div className="flex min-h-screen items-center justify-center bg-[#090b10] text-zinc-100">
+        <div className="text-center space-y-4">
+          <div className="h-9 w-9 animate-spin rounded-xs border-2 border-sky-400 border-t-transparent mx-auto" />
+          <p className="text-xs font-mono uppercase tracking-widest text-zinc-400">
+            Carregando painel de gestão...
+          </p>
         </div>
       </div>
     )
@@ -127,26 +142,29 @@ export default function GestaoPage() {
   // TELA DE ACESSO NEGADO SE NÃO FOR GESTOR
   if (!isGestor) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-        <div className="w-full max-w-lg rounded-3xl border border-gray-200 bg-white p-8 text-center shadow-xl space-y-5">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 text-3xl">
-            🔒
+      <div className="flex min-h-screen items-center justify-center bg-[#090b10] p-4 text-zinc-100">
+        <div className="w-full max-w-lg rounded-sm border border-zinc-800 bg-[#11141c] p-8 text-center shadow-2xl space-y-5">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xs bg-amber-950/60 border border-amber-800 text-amber-400">
+            <IconLock className="w-7 h-7" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Acesso Restrito ao Gestor</h2>
-            <p className="mt-2 text-xs text-gray-600 leading-relaxed">
-              O seu usuário (<strong className="text-gray-900">{perfilUsuario?.nome}</strong>)
+            <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400">
+              Permissão Insuficiente
+            </span>
+            <h2 className="text-xl font-bold text-white mt-1">Acesso Restrito à Coordenação</h2>
+            <p className="mt-2 text-xs text-zinc-400 leading-relaxed">
+              O seu usuário (<strong className="text-white">{perfilUsuario?.nome}</strong>)
               atualmente possui o papel de <strong>Aluno</strong>. Apenas gestores e professores
               possuem autorização para gerenciar aulas, questionários e visualizar indicadores de
               evasão.
             </p>
           </div>
 
-          <div className="rounded-2xl bg-gray-50 p-4 text-left text-xs text-gray-600 space-y-2 border border-gray-200">
-            <p className="font-bold text-gray-800">Como habilitar permissão de gestor no Supabase:</p>
-            <p>1. Execute a migração do arquivo <code className="font-mono text-purple-700">supabase/admin_gestao.sql</code> no SQL Editor do Supabase.</p>
-            <p>2. Em seguida, execute o comando:</p>
-            <pre className="rounded bg-gray-900 p-2 text-[11px] font-mono text-green-400 overflow-x-auto">
+          <div className="rounded-sm bg-[#090b10] p-4 text-left text-xs text-zinc-400 space-y-2 border border-zinc-800">
+            <p className="font-bold text-zinc-300 font-mono text-[11px]">Como habilitar permissão de gestor no Supabase:</p>
+            <p className="text-[11px]">1. Execute a migração do arquivo <code className="font-mono text-sky-400">supabase/admin_gestao.sql</code> no SQL Editor do Supabase.</p>
+            <p className="text-[11px]">2. Em seguida, execute o comando:</p>
+            <pre className="rounded-xs bg-black p-2 text-[11px] font-mono text-emerald-400 overflow-x-auto border border-zinc-800">
               UPDATE public.perfis SET papel = &apos;gestor&apos; WHERE id = &apos;{perfilUsuario?.id}&apos;;
             </pre>
           </div>
@@ -154,13 +172,13 @@ export default function GestaoPage() {
           <div className="pt-2 flex flex-col sm:flex-row justify-center gap-3">
             <button
               onClick={handlePromoverParaGestorDev}
-              className="rounded-xl bg-purple-700 px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-purple-800 transition"
+              className="rounded-sm bg-sky-500 px-5 py-2.5 text-xs font-bold text-zinc-950 shadow-md hover:bg-sky-400 transition"
             >
-              Tentar Habilitar Acesso Gestor Agora ⚡
+              Habilitar Acesso Gestor Agora
             </button>
             <Link
               href="/dashboard"
-              className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition"
+              className="rounded-sm border border-zinc-700 bg-zinc-800 px-5 py-2.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-700 transition"
             >
               Voltar ao Modo Aluno
             </Link>
@@ -171,78 +189,80 @@ export default function GestaoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 pb-20">
+    <div className="min-h-screen bg-[#090b10] text-zinc-100 pb-20">
       {/* BARRA SUPERIOR DO GESTOR */}
-      <header className="sticky top-0 z-40 bg-white shadow-xs border-b border-gray-200">
+      <header className="sticky top-0 z-40 bg-[#0d1017]/95 border-b border-zinc-800 shadow-xl backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 text-purple-700 font-bold text-lg">
-              ⚙️
-            </span>
+          <div className="flex items-center gap-4">
+            <IfspLogo textColor="light" className="h-8" />
+            <div className="h-5 w-px bg-zinc-800 hidden sm:block" />
             <div>
-              <span className="text-[11px] font-bold tracking-wider text-purple-700 uppercase">
-                Painel do Gestor • IFSP Hortolândia
-              </span>
-              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-gray-900 leading-tight">
-                Gestão do Minicurso de Data Centers
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono uppercase font-bold tracking-widest text-sky-400">
+                  Painel de Gestão • IFSP / Microsoft
+                </span>
+              </div>
+              <h1 className="text-base sm:text-lg font-bold tracking-tight text-white leading-tight">
+                Administração do Minicurso de Data Centers
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <Link
               href="/dashboard"
-              className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
+              className="inline-flex items-center gap-1.5 rounded-sm border border-zinc-800 bg-[#090b10] px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:border-sky-400 hover:text-white transition"
             >
-              <span>🎓</span>
+              <IconGraduationCap className="w-4 h-4 text-sky-400" />
               <span className="hidden sm:inline">Visualizar como Aluno</span>
             </Link>
 
             <button
               onClick={handleLogout}
-              className="rounded-lg bg-red-600 px-3 py-1.5 text-xs sm:text-sm font-semibold text-white hover:bg-red-500 transition"
+              className="inline-flex items-center gap-1.5 rounded-sm border border-zinc-800 bg-[#090b10] px-3 py-1.5 text-xs font-semibold text-zinc-400 hover:bg-zinc-800 hover:text-white transition"
             >
-              Sair
+              <IconLogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Sair</span>
             </button>
           </div>
         </div>
 
-        {/* ABAS DE NAVEGAÇÃO DO GESTOR */}
-        <div className="border-t border-gray-100 bg-gray-50/80 px-4 sm:px-8">
-          <div className="mx-auto flex max-w-7xl gap-3 overflow-x-auto py-2">
+        {/* ABAS DE NAVEGAÇÃO DO GESTOR COM ARESTAS RETANGULARES */}
+        <div className="border-t border-zinc-800 bg-[#090b10] px-4 sm:px-8">
+          <div className="mx-auto flex max-w-7xl gap-2 overflow-x-auto py-2">
             <button
               onClick={() => setAbaAtiva('analytics')}
-              className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold shrink-0 transition ${
+              className={`inline-flex items-center gap-2 rounded-sm px-4 py-2 text-xs font-bold shrink-0 transition ${
                 abaAtiva === 'analytics'
-                  ? 'bg-purple-700 text-white shadow-xs'
-                  : 'text-gray-600 hover:bg-white hover:text-gray-900'
+                  ? 'bg-sky-500 text-zinc-950 shadow-xs'
+                  : 'text-zinc-400 hover:bg-[#11141c] hover:text-white'
               }`}
             >
-              <span>📊</span>
+              <IconBarChart className="w-4 h-4" />
               <span>Indicadores & Evasão</span>
             </button>
 
             <button
               onClick={() => setAbaAtiva('aulas')}
-              className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold shrink-0 transition ${
+              className={`inline-flex items-center gap-2 rounded-sm px-4 py-2 text-xs font-bold shrink-0 transition ${
                 abaAtiva === 'aulas'
-                  ? 'bg-purple-700 text-white shadow-xs'
-                  : 'text-gray-600 hover:bg-white hover:text-gray-900'
+                  ? 'bg-sky-500 text-zinc-950 shadow-xs'
+                  : 'text-zinc-400 hover:bg-[#11141c] hover:text-white'
               }`}
             >
-              <span>📚</span>
-              <span>Módulos & Videoaulas</span>
+              <IconBookOpen className="w-4 h-4" />
+              <span>Módulos & Apresentações</span>
             </button>
 
             <button
               onClick={() => setAbaAtiva('questionarios')}
-              className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold shrink-0 transition ${
+              className={`inline-flex items-center gap-2 rounded-sm px-4 py-2 text-xs font-bold shrink-0 transition ${
                 abaAtiva === 'questionarios'
-                  ? 'bg-purple-700 text-white shadow-xs'
-                  : 'text-gray-600 hover:bg-white hover:text-gray-900'
+                  ? 'bg-sky-500 text-zinc-950 shadow-xs'
+                  : 'text-zinc-400 hover:bg-[#11141c] hover:text-white'
               }`}
             >
-              <span>📝</span>
+              <IconFileText className="w-4 h-4" />
               <span>Banco de Questionários</span>
             </button>
           </div>
@@ -284,4 +304,3 @@ export default function GestaoPage() {
     </div>
   )
 }
-
