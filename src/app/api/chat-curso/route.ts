@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { LIMITE_PERGUNTA, type RespostaCurso, type TrechoCurso } from '../../../lib/chatCurso'
-import { responderComFontes, CotaModeloEsgotada, selecionarContexto } from '../../../lib/chatCursoModelo'
+import { responderComFontes, CotaModeloEsgotada, pedeVisaoGeral, selecionarContexto } from '../../../lib/chatCursoModelo'
 import { lerCorpo, lerPaginasPdf, urlPdfPermitida } from '../../../lib/chatCursoPdf'
 
 export const maxDuration = 60
@@ -39,8 +39,7 @@ export async function POST(request: Request) {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  const apiKey = process.env.GROQ_API_KEY
-  if (!supabaseUrl || !supabaseAnonKey || !apiKey) {
+  if (!supabaseUrl || !supabaseAnonKey) {
     return Response.json({ erro: 'O chat ainda não foi configurado.' }, { status: 503 })
   }
 
@@ -80,6 +79,20 @@ export async function POST(request: Request) {
     if (error) throw new Error(`Consulta do curso: ${error.code}`)
 
     const aulas: AulaComMateriais[] = data
+    if (pedeVisaoGeral(pergunta)) {
+      return Response.json({
+        visaoGeral: true,
+        explicacao: aulas.length ? 'Você vai estudar os temas abaixo, na ordem em que aparecem na trilha.' : null,
+        trechos: aulas.map(({ titulo, descricao }) => ({ titulo, texto: descricao?.trim() || titulo })),
+        materiaisIndisponiveis: false,
+      } satisfies RespostaCurso)
+    }
+
+    const apiKey = process.env.GROQ_API_KEY
+    if (!apiKey) {
+      return Response.json({ erro: 'O chat ainda não foi configurado.' }, { status: 503 })
+    }
+
     const fontes: TrechoCurso[] = []
     for (const aula of aulas) {
       const texto = aula.descricao?.replace(/\s+/g, ' ').trim()

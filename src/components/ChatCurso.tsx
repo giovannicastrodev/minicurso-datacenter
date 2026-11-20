@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { IconArrowRight, IconBookOpen, IconX } from './ui/Icons'
 
 const SUGESTOES = [
+  'O que vou aprender neste minicurso?',
   'O que é um data center?',
   'Como o PUE é calculado?',
   'Como funciona a refrigeração?',
@@ -34,7 +35,10 @@ export default function ChatCurso() {
 
   useEffect(() => {
     const lista = mensagens.current
-    if (aberto && lista) lista.scrollTop = lista.scrollHeight
+    const ultimoTurno = lista?.lastElementChild
+    if (aberto && historico.length && lista && ultimoTurno) {
+      lista.scrollTop += ultimoTurno.getBoundingClientRect().top - lista.getBoundingClientRect().top
+    }
   }, [aberto, historico])
 
   function fechar() {
@@ -142,9 +146,21 @@ export default function ChatCurso() {
                   <p className="whitespace-pre-line break-words leading-relaxed text-slate-100">
                     {turno.explicacao || 'Não encontrei uma resposta direta nos materiais consultados.'}
                   </p>
-                  {turno.trechos.length > 0 && <p className="text-xs font-semibold text-slate-300">Fontes do minicurso</p>}
+                  {turno.trechos.length > 0 && (
+                    <p className="text-xs font-semibold text-slate-300">
+                      {turno.visaoGeral ? 'Temas da trilha' : 'Fontes do minicurso'}
+                    </p>
+                  )}
                   {turno.trechos.map((trecho, indice) => {
                     const fonte = trecho.pagina ? `${trecho.titulo} · p. ${trecho.pagina}` : trecho.titulo
+                    if (turno.visaoGeral) {
+                      return (
+                        <div key={indice} className="border-l-2 border-teal-400/60 pl-3">
+                          <h3 className="font-semibold text-teal-100">{trecho.titulo}</h3>
+                          {trecho.texto !== trecho.titulo && <p className="mt-1 text-slate-200">{trecho.texto}</p>}
+                        </div>
+                      )
+                    }
                     return (
                       <figure key={indice} className="border-l-2 border-teal-400/60 pl-3">
                         <blockquote className="break-words text-zinc-200">{trecho.texto}</blockquote>
