@@ -8,6 +8,7 @@ export interface TrechoCurso {
 }
 
 export interface RespostaCurso {
+  explicacao: string | null
   trechos: TrechoCurso[]
   materiaisIndisponiveis: boolean
 }

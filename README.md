@@ -35,9 +35,7 @@ Configure estas variáveis no `.env.local` e, se publicar o recurso, no ambiente
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=chave_publica_do_supabase
-OPENAI_API_KEY=chave_privada_da_openai
-# Opcional. O padrão é gpt-4.1-mini.
-# OPENAI_CHAT_MODEL=gpt-4.1-mini
+GROQ_API_KEY=chave_privada_da_groq
 # Opcional. Separe por vírgulas as origens HTTPS confiáveis dos PDFs externos.
 # CHAT_PDF_ORIGINS=https://arquivos.exemplo.edu.br
 ```
@@ -46,11 +44,11 @@ Use os valores do projeto Supabase que já contém as aulas, os materiais e as c
 
 Rode `npm run dev` e abra [localhost:3000](http://localhost:3000). Entre com uma conta de aluno e clique em **Chat do curso**, no canto inferior direito do painel. O botão acompanha a navegação entre a apresentação, o roteiro e as aulas. A conversa continua disponível ao fechar e reabrir o chat no painel.
 
-A API usa a sessão do aluno para consultar as tabelas `aulas` e `materiais` sob as políticas do Supabase. O chat consulta as descrições e o texto dos PDFs cadastrados. A resposta apresenta trechos conferidos no servidor, com título e página para PDFs. Sem evidência suficiente, o chat informa que não encontrou uma resposta. Cada pergunta é consultada de forma independente.
+A API usa a sessão do aluno para consultar as tabelas `aulas` e `materiais` sob as políticas do Supabase. O chat consulta as descrições e o texto dos PDFs cadastrados. A resposta explica o conteúdo em linguagem própria e apresenta trechos conferidos no servidor, com título e página para PDFs. Sem evidência suficiente, o chat informa que não encontrou uma resposta direta. Cada pergunta é consultada de forma independente.
 
 O Storage público do mesmo projeto e URLs assinadas válidas no Supabase são aceitos por padrão. Para PDFs em outros domínios, configure cada origem em `CHAT_PDF_ORIGINS`. Use URLs diretas e PDFs com texto selecionável. A consulta tem limite de 20 arquivos por pergunta e cada PDF pode ter até 12 MiB, 150 páginas e 250 mil caracteres extraídos. O chat avisa quando algum PDF fica fora da consulta. O arquivo `supabase/seed.sql` aponta para PDFs de exemplo. Use os materiais reais para validar respostas do minicurso.
 
-A pergunta e os trechos de contexto selecionados são enviados à API da OpenAI pelo servidor. A chave da OpenAI deve ficar em uma variável privada. O histórico visível fica na memória do painel. Para validar, faça uma pergunta cuja resposta esteja apenas em um PDF real e abra a página citada. Depois faça uma pergunta sobre um tema ausente do conteúdo e confira a mensagem de insuficiência.
+A pergunta e os trechos selecionados são enviados pelo servidor ao modelo `openai/gpt-oss-20b` da Groq. Uma segunda chamada confere se a explicação é sustentada pelas citações. A chave fica no servidor e o plano gratuito tem limites de uso. Para validar, faça uma pergunta cuja resposta esteja em um PDF real e abra a página citada. Depois pergunte sobre um tema ausente do conteúdo.
 
 ## Learn More
 

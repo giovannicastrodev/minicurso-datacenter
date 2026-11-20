@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { LIMITE_PERGUNTA, type RespostaCurso, type TrechoCurso } from '../../../lib/chatCurso'
-import { buscarCitacoes, selecionarContexto } from '../../../lib/chatCursoModelo'
+import { responderComFontes, CotaModeloEsgotada, selecionarContexto } from '../../../lib/chatCursoModelo'
 import { lerCorpo, lerPaginasPdf, urlPdfPermitida } from '../../../lib/chatCursoPdf'
 
 export const maxDuration = 60
@@ -16,7 +16,7 @@ interface AulaComMateriais {
 }
 
 function adicionarFonte(fontes: TrechoCurso[], fonte: TrechoCurso) {
-  const texto = fonte.texto.replace(/\s+/g, ' ').trim()
+  const { texto } = fonte
   for (let inicio = 0; inicio < texto.length; inicio += 1800) {
     fontes.push({ ...fonte, texto: texto.slice(inicio, inicio + 2100) })
     if (inicio + 2100 >= texto.length) break
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  const apiKey = process.env.OPENAI_API_KEY
+  const apiKey = process.env.GROQ_API_KEY
   if (!supabaseUrl || !supabaseAnonKey || !apiKey) {
     return Response.json({ erro: 'O chat ainda não foi configurado.' }, { status: 503 })
   }
@@ -82,19 +82,19 @@ export async function POST(request: Request) {
     const aulas: AulaComMateriais[] = data
     const fontes: TrechoCurso[] = []
     for (const aula of aulas) {
-      if (aula.descricao) adicionarFonte(fontes, { titulo: aula.titulo, texto: aula.descricao })
+      const texto = aula.descricao?.replace(/\s+/g, ' ').trim()
+      if (texto) adicionarFonte(fontes, { titulo: aula.titulo, texto })
     }
 
     const materiais = aulas.flatMap((aula) => aula.materiais)
+    const consultaveis = materiais.slice(0, MAX_MATERIAIS)
     let materiaisIndisponiveis = materiais.length > MAX_MATERIAIS
-    const limite = Math.min(materiais.length, MAX_MATERIAIS)
-    for (let inicio = 0; inicio < limite; inicio += 5) {
-      const lote = materiais.slice(inicio, Math.min(inicio + 5, limite))
+    for (let inicio = 0; inicio < consultaveis.length; inicio += 5) {
+      const lote = consultaveis.slice(inicio, inicio + 5)
       const resultados = await Promise.allSettled(lote.map(async (material) => {
         const url = urlPdfPermitida(material.url_arquivo, supabaseUrl)
         if (!url) throw new Error('Origem do PDF não configurada')
         const paginas = await lerPaginasPdf(url)
-        url.hash = ''
         return paginas.map((texto, indice) => ({
           texto,
           titulo: material.titulo,
@@ -111,9 +111,12 @@ export async function POST(request: Request) {
       }
     }
 
-    const trechos = await buscarCitacoes(apiKey, pergunta, selecionarContexto(fontes, pergunta))
-    return Response.json({ trechos, materiaisIndisponiveis } satisfies RespostaCurso)
+    const resposta = await responderComFontes(apiKey, pergunta, selecionarContexto(fontes, pergunta))
+    return Response.json({ ...resposta, materiaisIndisponiveis } satisfies RespostaCurso)
   } catch (erro) {
+    if (erro instanceof CotaModeloEsgotada) {
+      return Response.json({ erro: 'O chat atingiu o limite de uso da API. Tente novamente mais tarde.' }, { status: 503 })
+    }
     console.error('Falha no chat do curso', erro instanceof Error ? erro.name : 'Erro desconhecido')
     return Response.json({ erro: 'O chat está indisponível no momento. Tente novamente.' }, { status: 502 })
   }

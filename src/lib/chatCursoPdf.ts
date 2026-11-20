@@ -30,6 +30,7 @@ export function urlPdfPermitida(valor: string, supabaseUrl: string) {
   try {
     const url = new URL(valor)
     if (url.protocol !== 'https:' || url.username || url.password) return null
+    url.hash = ''
     if (url.origin === new URL(supabaseUrl).origin) {
       return /^\/storage\/v1\/object\/(public|sign)\//.test(url.pathname) ? url : null
     }
@@ -58,7 +59,8 @@ async function extrairPaginas(url: URL) {
     if (pdf.numPages > 150) throw new Error('PDF acima do limite de páginas')
     const { text } = await extractText(pdf, { mergePages: false })
     const paginas = text.map((pagina) => pagina.replace(/\s+/g, ' ').trim())
-    if (!paginas.some(Boolean) || paginas.join('').length > 250_000) {
+    const caracteres = paginas.reduce((total, pagina) => total + pagina.length, 0)
+    if (caracteres === 0 || caracteres > 250_000) {
       throw new Error('Texto do PDF indisponível ou acima do limite')
     }
     return paginas

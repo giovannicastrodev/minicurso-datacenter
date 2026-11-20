@@ -3,6 +3,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { LIMITE_PERGUNTA, type RespostaCurso } from '../lib/chatCurso'
 import { supabase } from '../lib/supabase'
+import { IconArrowRight, IconBookOpen, IconX } from './ui/Icons'
+
+const SUGESTOES = [
+  'O que é um data center?',
+  'Como o PUE é calculado?',
+  'Como funciona a refrigeração?',
+]
 
 interface Turno extends RespostaCurso {
   id: number
@@ -17,11 +24,12 @@ export default function ChatCurso() {
   const [erro, setErro] = useState('')
   const proximoId = useRef(0)
   const botao = useRef<HTMLButtonElement>(null)
+  const botaoFechar = useRef<HTMLButtonElement>(null)
   const campo = useRef<HTMLInputElement>(null)
   const mensagens = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (aberto) campo.current?.focus()
+    if (aberto) botaoFechar.current?.focus()
   }, [aberto])
 
   useEffect(() => {
@@ -74,87 +82,119 @@ export default function ChatCurso() {
   }
 
   return (
-    <div className="pointer-events-none fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex flex-col items-end gap-2 sm:inset-x-auto sm:right-6 sm:bottom-6">
+    <div className="pointer-events-none fixed inset-0 z-40 flex justify-end">
       <section
         id="chat-curso"
         aria-labelledby="chat-curso-titulo"
-        hidden={!aberto}
         onKeyDown={(evento) => {
           if (evento.key === 'Escape') {
             evento.stopPropagation()
             fechar()
           }
         }}
-        className="pointer-events-auto w-full overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900 shadow-2xl sm:w-96"
+        className={aberto ? 'pointer-events-auto flex h-dvh w-full flex-col overflow-hidden bg-[#101923] text-slate-100 shadow-2xl sm:my-3 sm:mr-3 sm:h-[calc(100dvh-1.5rem)] sm:w-[26rem] sm:rounded-2xl sm:border sm:border-slate-700' : 'hidden'}
       >
-        <header className="flex items-center justify-between gap-3 border-b border-zinc-800 px-4 py-2">
-          <h2 id="chat-curso-titulo" className="text-sm font-bold text-zinc-100">Tire dúvidas do minicurso</h2>
+        <header className="flex shrink-0 items-center gap-3 border-b border-slate-700 bg-[#172534] px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-teal-300/15 text-teal-200">
+            <IconBookOpen aria-hidden="true" />
+          </span>
+          <h2 id="chat-curso-titulo" className="flex-1 font-semibold">Assistente do minicurso</h2>
           <button
+            ref={botaoFechar}
             type="button"
             onClick={fechar}
-            className="rounded px-2 py-1 text-sm text-zinc-300 hover:bg-zinc-800"
+            aria-label="Fechar chat"
+            className="grid size-10 place-items-center rounded-lg text-slate-300 hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-teal-300"
           >
-            Fechar
+            <IconX aria-hidden="true" />
           </button>
         </header>
-        <div className="flex max-h-[min(32rem,calc(100dvh-9rem))] flex-col">
-          <div ref={mensagens} role="log" aria-label="Perguntas e respostas" className="min-h-0 space-y-3 overflow-y-auto p-3 empty:hidden">
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div ref={mensagens} role="log" aria-label="Perguntas e respostas" className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 py-6">
+            {historico.length === 0 && (
+              <div className="space-y-4">
+                <p className="rounded-2xl rounded-tl-sm bg-[#1d2c3b] px-4 py-3 text-sm leading-relaxed text-slate-200">
+                  Olá! Posso ajudar você a encontrar respostas nas aulas e nos PDFs do minicurso.
+                </p>
+                <ul aria-label="Sugestões de perguntas" className="space-y-2">
+                  {SUGESTOES.map((sugestao) => (
+                    <li key={sugestao}>
+                      <button
+                        type="button"
+                        disabled={enviando}
+                        onClick={() => {
+                          setPergunta(sugestao)
+                          campo.current?.focus()
+                        }}
+                        className="rounded-lg border border-slate-600 px-3 py-2 text-left text-sm text-teal-100 hover:border-teal-300 hover:bg-teal-300/10 focus-visible:outline-2 focus-visible:outline-teal-300 disabled:opacity-50"
+                      >
+                        {sugestao}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {historico.map((turno) => (
-              <article key={turno.id} className="space-y-3 rounded-sm bg-zinc-950 p-3 text-sm">
-                <p className="break-words font-semibold text-zinc-100">{turno.pergunta}</p>
-                {turno.trechos.length === 0 && (
-                  <p className="text-zinc-300">Não encontrei uma resposta nos materiais consultados.</p>
-                )}
-                {turno.trechos.map((trecho, indice) => {
-                  const fonte = trecho.pagina ? `${trecho.titulo} · p. ${trecho.pagina}` : trecho.titulo
-                  return (
-                    <figure key={indice} className="border-l-2 border-sky-600 pl-3">
-                      <blockquote className="break-words text-zinc-200">{trecho.texto}</blockquote>
-                      <figcaption className="mt-1 text-xs text-zinc-400">
-                        {trecho.url ? (
-                          <a
-                            href={`${trecho.url}#page=${trecho.pagina}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sky-300 underline underline-offset-2"
-                          >
-                            {fonte}
-                          </a>
-                        ) : fonte}
-                      </figcaption>
-                    </figure>
-                  )
-                })}
-                {turno.materiaisIndisponiveis && (
-                  <p className="text-xs text-amber-300">Alguns PDFs ficaram fora desta consulta.</p>
-                )}
+              <article key={turno.id} className="space-y-3 text-sm">
+                <p className="ml-auto w-fit max-w-[90%] break-words rounded-2xl rounded-tr-sm bg-teal-950 px-4 py-2.5 text-teal-50">{turno.pergunta}</p>
+                <div className="space-y-3 rounded-2xl rounded-tl-sm bg-[#1d2c3b] p-4">
+                  <p className="whitespace-pre-line break-words leading-relaxed text-slate-100">
+                    {turno.explicacao || 'Não encontrei uma resposta direta nos materiais consultados.'}
+                  </p>
+                  {turno.trechos.length > 0 && <p className="text-xs font-semibold text-slate-300">Fontes do minicurso</p>}
+                  {turno.trechos.map((trecho, indice) => {
+                    const fonte = trecho.pagina ? `${trecho.titulo} · p. ${trecho.pagina}` : trecho.titulo
+                    return (
+                      <figure key={indice} className="border-l-2 border-teal-400/60 pl-3">
+                        <blockquote className="break-words text-zinc-200">{trecho.texto}</blockquote>
+                        <figcaption className="mt-1 text-xs text-zinc-400">
+                          {trecho.url ? (
+                            <a
+                              href={`${trecho.url}#page=${trecho.pagina}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="break-words text-teal-200 underline underline-offset-2"
+                            >
+                              {fonte}
+                            </a>
+                          ) : fonte}
+                        </figcaption>
+                      </figure>
+                    )
+                  })}
+                  {turno.materiaisIndisponiveis && (
+                    <p className="text-xs text-amber-300">Alguns PDFs ficaram fora desta consulta.</p>
+                  )}
+                </div>
               </article>
             ))}
           </div>
-          <form onSubmit={enviar} className="flex shrink-0 items-end gap-2 border-t border-zinc-800 p-3">
-            <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm text-zinc-200">
-              Sua pergunta
+          {enviando && <p role="status" className="px-5 pb-3 text-sm text-slate-300">Consultando materiais…</p>}
+          {erro && <p role="alert" className="px-5 pb-3 text-sm text-rose-300">{erro}</p>}
+          <form onSubmit={enviar} className="shrink-0 border-t border-slate-700 bg-[#172534] px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div className="flex items-center gap-2 rounded-2xl border border-slate-600 bg-[#101923] p-1.5 focus-within:border-teal-300">
               <input
                 ref={campo}
+                aria-label="Sua pergunta"
                 value={pergunta}
                 onChange={(evento) => setPergunta(evento.target.value)}
                 maxLength={LIMITE_PERGUNTA}
                 required
                 readOnly={enviando}
-                placeholder="O que é PUE?"
-                className="rounded-sm border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+                placeholder="Digite sua pergunta"
+                className="min-w-0 flex-1 bg-transparent px-2 py-2 text-base text-slate-100 outline-none placeholder:text-slate-400"
               />
-            </label>
-            <button
-              type="submit"
-              disabled={enviando || !pergunta.trim()}
-              className="rounded-sm bg-sky-700 px-4 py-2 text-sm font-bold text-white hover:bg-sky-600 disabled:opacity-60"
-            >
-              Perguntar
-            </button>
+              <button
+                type="submit"
+                disabled={enviando || !pergunta.trim()}
+                aria-label="Enviar pergunta"
+                className="grid size-10 shrink-0 place-items-center rounded-xl bg-teal-300 text-slate-950 hover:bg-teal-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-200 disabled:opacity-40"
+              >
+                <IconArrowRight aria-hidden="true" />
+              </button>
+            </div>
           </form>
-          {enviando && <p role="status" className="px-3 pb-3 text-sm text-zinc-300">Consultando materiais…</p>}
-          {erro && <p role="alert" className="px-3 pb-3 text-sm text-rose-300">{erro}</p>}
         </div>
       </section>
       <button
@@ -162,12 +202,11 @@ export default function ChatCurso() {
         type="button"
         aria-controls="chat-curso"
         aria-expanded={aberto}
-        onClick={() => aberto ? fechar() : setAberto(true)}
-        className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-sky-700 px-4 py-3 text-sm font-bold text-white shadow-lg hover:bg-sky-600"
+        onClick={() => setAberto(true)}
+        className={aberto ? 'sr-only pointer-events-none' : 'pointer-events-auto fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 inline-flex items-center gap-2.5 rounded-2xl bg-teal-300 px-4 py-3 text-sm font-bold text-slate-950 shadow-xl hover:bg-teal-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-200 sm:bottom-6 sm:right-6'}
+        tabIndex={aberto ? -1 : undefined}
       >
-        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H5l1.4-3.3A7.5 7.5 0 1 1 20 11.5Z" />
-        </svg>
+        <IconBookOpen aria-hidden="true" />
         Chat do curso
       </button>
     </div>
