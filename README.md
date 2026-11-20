@@ -20,6 +20,38 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Chat de dúvidas do minicurso
+
+Para rodar esta branch em uma máquina com Git, Node.js 22 e npm:
+
+```bash
+git clone --branch feature/chatbot-minicurso https://github.com/giovannicastrodev/minicurso-datacenter.git
+cd minicurso-datacenter
+npm ci
+```
+
+Configure estas variáveis no `.env.local` e, se publicar o recurso, no ambiente de hospedagem.
+
+```dotenv
+NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=chave_publica_do_supabase
+OPENAI_API_KEY=chave_privada_da_openai
+# Opcional. O padrão é gpt-4.1-mini.
+# OPENAI_CHAT_MODEL=gpt-4.1-mini
+# Opcional. Separe por vírgulas as origens HTTPS confiáveis dos PDFs externos.
+# CHAT_PDF_ORIGINS=https://arquivos.exemplo.edu.br
+```
+
+Use os valores do projeto Supabase que já contém as aulas, os materiais e as contas do minicurso. O `seed.sql` apaga registros existentes antes de carregar os exemplos. Para testar com a base atual, conecte-se a ela diretamente.
+
+Rode `npm run dev` e abra [localhost:3000](http://localhost:3000). Entre com uma conta de aluno e clique em **Chat do curso**, no canto inferior direito do painel. O botão acompanha a navegação entre a apresentação, o roteiro e as aulas. A conversa continua disponível ao fechar e reabrir o chat no painel.
+
+A API usa a sessão do aluno para consultar as tabelas `aulas` e `materiais` sob as políticas do Supabase. O chat consulta as descrições e o texto dos PDFs cadastrados. A resposta apresenta trechos conferidos no servidor, com título e página para PDFs. Sem evidência suficiente, o chat informa que não encontrou uma resposta. Cada pergunta é consultada de forma independente.
+
+O Storage público do mesmo projeto e URLs assinadas válidas no Supabase são aceitos por padrão. Para PDFs em outros domínios, configure cada origem em `CHAT_PDF_ORIGINS`. Use URLs diretas e PDFs com texto selecionável. A consulta tem limite de 20 arquivos por pergunta e cada PDF pode ter até 12 MiB, 150 páginas e 250 mil caracteres extraídos. O chat avisa quando algum PDF fica fora da consulta. O arquivo `supabase/seed.sql` aponta para PDFs de exemplo. Use os materiais reais para validar respostas do minicurso.
+
+A pergunta e os trechos de contexto selecionados são enviados à API da OpenAI pelo servidor. A chave da OpenAI deve ficar em uma variável privada. O histórico visível fica na memória do painel. Para validar, faça uma pergunta cuja resposta esteja apenas em um PDF real e abra a página citada. Depois faça uma pergunta sobre um tema ausente do conteúdo e confira a mensagem de insuficiência.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
