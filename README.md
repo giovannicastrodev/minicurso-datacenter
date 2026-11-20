@@ -44,7 +44,7 @@ Use os valores do projeto Supabase que já contém as aulas, os materiais e as c
 
 Rode `npm run dev` e abra [localhost:3000](http://localhost:3000). Entre com uma conta de aluno e clique em **Chat do curso**, no canto inferior direito do painel. O botão acompanha a navegação entre a apresentação, o roteiro e as aulas. A conversa continua disponível ao fechar e reabrir o chat no painel.
 
-A API usa a sessão do aluno para consultar as tabelas `aulas` e `materiais` sob as políticas do Supabase. O chat consulta as descrições e o texto dos PDFs cadastrados. A resposta explica o conteúdo em linguagem própria e apresenta trechos conferidos no servidor, com título e página para PDFs. Sem evidência suficiente, o chat informa que não encontrou uma resposta direta. Cada pergunta é consultada de forma independente.
+A API usa a sessão do aluno para consultar as tabelas `aulas` e `materiais` sob as políticas do Supabase. O chat consulta as descrições e o texto dos PDFs cadastrados. A explicação baseada no curso apresenta trechos conferidos no servidor, com título e página para PDFs. O painel sinaliza explicações e exemplos gerais sobre temas técnicos relacionados como **Contexto complementar**. Cada pergunta é consultada de forma independente.
 
 Perguntas sobre a ementa ou o que se aprende no minicurso consultam diretamente os títulos e as descrições das aulas, na ordem da trilha.
 

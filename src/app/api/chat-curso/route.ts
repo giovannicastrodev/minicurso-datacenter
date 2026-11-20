@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { LIMITE_PERGUNTA, type RespostaCurso, type TrechoCurso } from '../../../lib/chatCurso'
-import { responderComFontes, CotaModeloEsgotada, pedeVisaoGeral, selecionarContexto } from '../../../lib/chatCursoModelo'
+import { responderComFontes, CotaModeloEsgotada, pedeApresentacao, pedeVisaoGeral, selecionarContexto } from '../../../lib/chatCursoModelo'
 import { lerCorpo, lerPaginasPdf, urlPdfPermitida } from '../../../lib/chatCursoPdf'
 
 export const maxDuration = 60
@@ -71,6 +71,14 @@ export async function POST(request: Request) {
       })
     }
     ultimasSolicitacoes.set(user.id, agora)
+
+    if (pedeApresentacao(pergunta)) {
+      return Response.json({
+        explicacao: 'Sou o assistente do minicurso de operação de data centers. Posso te orientar na trilha, explicar conceitos e dar exemplos para ajudar no estudo.',
+        trechos: [],
+        materiaisIndisponiveis: false,
+      } satisfies RespostaCurso)
+    }
 
     const { data, error } = await supabase
       .from('aulas')

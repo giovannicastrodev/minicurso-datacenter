@@ -9,6 +9,7 @@ export interface TrechoCurso {
 
 export interface RespostaCurso {
   visaoGeral?: boolean
+  complemento?: string
   explicacao: string | null
   trechos: TrechoCurso[]
   materiaisIndisponiveis: boolean

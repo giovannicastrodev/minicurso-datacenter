@@ -143,9 +143,17 @@ export default function ChatCurso() {
               <article key={turno.id} className="space-y-3 text-sm">
                 <p className="ml-auto w-fit max-w-[90%] break-words rounded-2xl rounded-tr-sm bg-teal-950 px-4 py-2.5 text-teal-50">{turno.pergunta}</p>
                 <div className="space-y-3 rounded-2xl rounded-tl-sm bg-[#1d2c3b] p-4">
-                  <p className="whitespace-pre-line break-words leading-relaxed text-slate-100">
-                    {turno.explicacao || 'Não encontrei uma resposta direta nos materiais consultados.'}
-                  </p>
+                  {(turno.explicacao || !turno.complemento) && (
+                    <p className="whitespace-pre-line break-words leading-relaxed text-slate-100">
+                      {turno.explicacao || 'Posso ajudar com dúvidas sobre a trilha, data centers e temas técnicos relacionados.'}
+                    </p>
+                  )}
+                  {turno.complemento && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-teal-200">Contexto complementar</p>
+                      <p className="whitespace-pre-line break-words leading-relaxed text-slate-100">{turno.complemento}</p>
+                    </div>
+                  )}
                   {turno.trechos.length > 0 && (
                     <p className="text-xs font-semibold text-slate-300">
                       {turno.visaoGeral ? 'Temas da trilha' : 'Fontes do minicurso'}
