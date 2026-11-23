@@ -52,7 +52,7 @@ export default function GerenciadorAulas({ aulas, onAtualizar }: GerenciadorAula
     setAulaEdicao(aula)
     setTituloAula(aula.titulo)
     setDescricaoAula(aula.descricao)
-    setUrlVideo(aula.url_video)
+    setUrlVideo(aula.url_video || '')
     setOrdemAula(aula.ordem)
     setModalAulaAberto(true)
   }
@@ -78,7 +78,7 @@ export default function GerenciadorAulas({ aulas, onAtualizar }: GerenciadorAula
           .update({
             titulo: tituloAula,
             descricao: descricaoAula,
-            url_video: urlFinal,
+            url_video: urlFinal || null,
             ordem: ordemAula,
           })
           .eq('id', aulaEdicao.id)
@@ -245,23 +245,27 @@ export default function GerenciadorAulas({ aulas, onAtualizar }: GerenciadorAula
 
               {/* Informações de Mídia e Vídeo */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h4 className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400 mb-2">
-                    Vídeo Cadastrado
-                  </h4>
-                  <div className="aspect-video w-full max-w-sm rounded-sm overflow-hidden bg-black border border-zinc-800">
-                    <iframe
-                      src={aula.url_video}
-                      title={aula.titulo}
-                      className="h-full w-full"
-                      allowFullScreen
-                    />
-                  </div>
-                  <p className="mt-1 text-[11px] font-mono text-zinc-500 truncate">
-                    {aula.url_video}
-                  </p>
-                </div>
+                {aula.url_video && (
+                  <div>
+                    <h4 className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400 mb-2">
+                      Vídeo Cadastrado
+                    </h4>
 
+                    <div className="aspect-video w-full max-w-sm rounded-sm overflow-hidden bg-black border border-zinc-800">
+                      <iframe
+                        src={aula.url_video}
+                        title={aula.titulo}
+                        className="h-full w-full"
+                        allowFullScreen
+                      />
+                    </div>
+
+                    <p className="mt-1 text-[11px] font-mono text-zinc-500 truncate">
+                      {aula.url_video}
+                    </p>
+                  </div>
+                )}
+                
                 {/* Materiais Complementares da Aula */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -359,7 +363,6 @@ export default function GerenciadorAulas({ aulas, onAtualizar }: GerenciadorAula
                   </label>
                   <input
                     type="url"
-                    required
                     value={urlVideo}
                     onChange={(e) => setUrlVideo(e.target.value)}
                     placeholder="https://www.youtube.com/watch?v=..."

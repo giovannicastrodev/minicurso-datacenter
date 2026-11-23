@@ -43,7 +43,7 @@ export interface Aula {
   id: string
   titulo: string
   descricao: string
-  url_video: string
+  url_video: string | null
   ordem: number
   materiais?: MaterialComplementar[]
   questionarios?: Questionario[]

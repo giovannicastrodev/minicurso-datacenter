@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { Questionario, Questao, Alternativa } from '../../types/database'
+import { Aula, Questionario, Questao, Alternativa } from '../../types/database'
 import { supabase } from '../../lib/supabase'
 import {
   IconPlus,
@@ -15,11 +15,13 @@ import {
 
 interface GerenciadorQuestionariosProps {
   questionarios: Questionario[]
+  aulas: Aula[]
   onAtualizar: () => void
 }
 
 export default function GerenciadorQuestionarios({
   questionarios,
+  aulas,
   onAtualizar,
 }: GerenciadorQuestionariosProps) {
   const [questionarioIdAtivo, setQuestionarioIdAtivo] = useState<string>(
@@ -27,8 +29,12 @@ export default function GerenciadorQuestionarios({
   )
   const [questoesCompletas, setQuestoesCompletas] = useState<Questao[]>([])
   const [carregandoQuestoes, setCarregandoQuestoes] = useState(false)
+  const [questoesRespondidas, setQuestoesRespondidas] = useState<Set<string>>(new Set())
 
   // Modais de Criação/Edição de Questão
+  const [modalAtividadeAberto, setModalAtividadeAberto] = useState(false)
+  const [tituloAtividade, setTituloAtividade] = useState('')
+  const [aulaSelecionada, setAulaSelecionada] = useState('')
   const [modalQuestaoAberto, setModalQuestaoAberto] = useState(false)
   const [questaoEdicao, setQuestaoEdicao] = useState<Questao | null>(null)
   const [enunciado, setEnunciado] = useState('')
@@ -58,6 +64,7 @@ export default function GerenciadorQuestionarios({
         questionario_id,
         enunciado,
         ordem,
+        ativa,
         alternativas (id, questao_id, texto, ordem, correta)
       `)
       .eq('questionario_id', qId)
@@ -66,6 +73,22 @@ export default function GerenciadorQuestionarios({
     if (!error && data) {
       setQuestoesCompletas(data as unknown as Questao[])
     }
+
+    const { data: respostas, error: erroRespostas } = await supabase
+      .from('respostas')
+      .select('questao_id')
+
+    if (erroRespostas) {
+      setMensagem({
+        tipo: 'erro',
+        texto: `Erro ao consultar respostas: ${erroRespostas.message}`,
+      })
+    } else {
+      setQuestoesRespondidas(
+        new Set((respostas || []).map((r) => r.questao_id))
+      )
+    }
+
     setCarregandoQuestoes(false)
   }, [])
 
@@ -91,6 +114,14 @@ export default function GerenciadorQuestionarios({
   }
 
   const handleAbrirEditarQuestao = (q: Questao) => {
+    if (questoesRespondidas.has(q.id)) {
+      setMensagem({
+        tipo: 'erro',
+        texto: 'Esta questão já foi respondida por alunos. Para modificá-la, arquive-a e crie uma nova.',
+      })
+      return
+    }
+
     setQuestaoEdicao(q)
     setEnunciado(q.enunciado)
     setOrdemQuestao(q.ordem)
@@ -105,6 +136,47 @@ export default function GerenciadorQuestionarios({
       }))
     )
     setModalQuestaoAberto(true)
+  }
+
+  const handleSalvarAtividade = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSalvando(true)
+    setMensagem(null)
+
+    try {
+      const { data, error } = await supabase
+        .from('questionarios')
+        .insert({
+          aula_id: aulaSelecionada,
+          tipo: 'FIXACAO',
+          titulo: tituloAtividade,
+          percentual_minimo: null,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      setQuestionarioIdAtivo(data.id)
+      setQuestoesCompletas([])
+      setTituloAtividade('')
+      setAulaSelecionada('')
+      setModalAtividadeAberto(false)
+
+      setMensagem({
+        tipo: 'sucesso',
+        texto: 'Nova atividade criada com sucesso!',
+      })
+
+      onAtualizar()
+    } catch (err: any) {
+      setMensagem({
+        tipo: 'erro',
+        texto: `Erro ao criar atividade: ${err.message}`,
+      })
+    } finally {
+      setSalvando(false)
+    }
   }
 
   const handleSalvarQuestao = async (e: React.FormEvent) => {
@@ -197,6 +269,14 @@ export default function GerenciadorQuestionarios({
   }
 
   const handleExcluirQuestao = async (q: Questao) => {
+    if (questoesRespondidas.has(q.id)) {
+      setMensagem({
+        tipo: 'erro',
+        texto: 'Esta questão já possui respostas. Utilize a opção Arquivar.',
+      })
+      return
+    }
+    
     const confirmou = window.confirm(`Excluir a questão #${q.ordem} permanentemente?`)
     if (!confirmou) return
 
@@ -209,6 +289,62 @@ export default function GerenciadorQuestionarios({
     } catch (err: any) {
       setMensagem({ tipo: 'erro', texto: `Erro ao excluir questão: ${err.message}` })
     }
+  }
+
+  const handleArquivarQuestao = async (q: Questao) => {
+      const confirmou = window.confirm(
+        `Arquivar a questão #${q.ordem}? Ela deixará de aparecer para novos alunos, mas seu histórico será preservado.`
+      )
+
+      if (!confirmou) return
+
+      const { error } = await supabase
+        .from('questoes')
+        .update({ ativa: false })
+        .eq('id', q.id)
+
+      if (error) {
+        setMensagem({
+          tipo: 'erro',
+          texto: `Erro ao arquivar questão: ${error.message}`,
+        })
+        return
+      }
+
+      setMensagem({
+        tipo: 'sucesso',
+        texto: 'Questão arquivada com sucesso!',
+      })
+
+      carregarQuestoesComGabarito(questionarioIdAtivo)
+    }
+
+    const handleReativarQuestao = async (q: Questao) => {
+    const confirmou = window.confirm(
+      `Reativar a questão #${q.ordem}? Ela voltará a aparecer para novos alunos.`
+    )
+
+    if (!confirmou) return
+
+    const { error } = await supabase
+      .from('questoes')
+      .update({ ativa: true })
+      .eq('id', q.id)
+
+    if (error) {
+      setMensagem({
+        tipo: 'erro',
+        texto: `Erro ao reativar questão: ${error.message}`,
+      })
+      return
+    }
+
+    setMensagem({
+      tipo: 'sucesso',
+      texto: 'Questão reativada com sucesso!',
+    })
+
+    carregarQuestoesComGabarito(questionarioIdAtivo)
   }
 
   return (
@@ -224,6 +360,18 @@ export default function GerenciadorQuestionarios({
             Edite enunciados, alternativas e gabaritos das Atividades de Fixação e da Avaliação Final.
           </p>
         </div>
+
+        <button
+          onClick={() => {
+            setTituloAtividade('')
+            setAulaSelecionada('')
+            setModalAtividadeAberto(true)
+          }}
+          className="inline-flex items-center gap-2 rounded-sm border border-sky-500 px-4 py-2.5 text-xs sm:text-sm font-bold text-sky-400 hover:bg-sky-500/10 transition"
+        >
+          <IconPlus className="w-4 h-4" />
+          <span>Nova Atividade</span>
+        </button>
 
         <button
           onClick={handleAbrirNovaQuestao}
@@ -292,20 +440,44 @@ export default function GerenciadorQuestionarios({
                 </h3>
 
                 <div className="flex items-center gap-2 shrink-0">
+                {!questoesRespondidas.has(q.id) && (
+                  <>
+                    <button
+                      onClick={() => handleAbrirEditarQuestao(q)}
+                      className="inline-flex items-center gap-1.5 rounded-sm border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs font-semibold text-zinc-200 hover:bg-zinc-700 transition"
+                    >
+                      <IconEdit className="w-3.5 h-3.5 text-sky-400" />
+                      <span>Editar</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleExcluirQuestao(q)}
+                      className="inline-flex items-center gap-1.5 rounded-sm border border-red-900/60 bg-red-950/40 px-2.5 py-1 text-xs font-semibold text-red-400 hover:bg-red-900/60 transition"
+                    >
+                      <IconTrash className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                )}
+
+                {questoesRespondidas.has(q.id) && q.ativa && (
                   <button
-                    onClick={() => handleAbrirEditarQuestao(q)}
-                    className="inline-flex items-center gap-1.5 rounded-sm border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs font-semibold text-zinc-200 hover:bg-zinc-700 transition"
+                    onClick={() => handleArquivarQuestao(q)}
+                    className="rounded-sm border border-amber-800 bg-amber-950/30 px-3 py-1 text-xs font-semibold text-amber-400"
                   >
-                    <IconEdit className="w-3.5 h-3.5 text-sky-400" />
-                    <span>Editar</span>
+                    Arquivar
                   </button>
+                )}
+
+                {questoesRespondidas.has(q.id) && !q.ativa && (
                   <button
-                    onClick={() => handleExcluirQuestao(q)}
-                    className="inline-flex items-center gap-1.5 rounded-sm border border-red-900/60 bg-red-950/40 px-2.5 py-1 text-xs font-semibold text-red-400 hover:bg-red-900/60 transition"
+                    onClick={() => handleReativarQuestao(q)}
+                    className="rounded-sm border border-emerald-800 bg-emerald-950/30 px-3 py-1 text-xs font-semibold text-emerald-400"
                   >
-                    <IconTrash className="w-3.5 h-3.5" />
+                    Reativar
                   </button>
-                </div>
+                )}
+
+              </div>
               </div>
 
               {/* Lista de Alternativas com Gabarito em Destaque */}
@@ -341,6 +513,77 @@ export default function GerenciadorQuestionarios({
           ))
         )}
       </div>
+
+      {/* MODAL DE CRIAÇÃO DE ATIVIDADE */}
+      {modalAtividadeAberto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="w-full max-w-lg rounded-sm bg-[#11141c] border border-zinc-800 p-6 space-y-4">
+
+            <h3 className="text-base font-bold text-white border-b border-zinc-800 pb-3">
+              Nova Atividade de Fixação
+            </h3>
+
+            <form onSubmit={handleSalvarAtividade} className="space-y-4">
+
+              <div>
+                <label className="block text-xs font-mono uppercase text-zinc-400">
+                  Nome da atividade
+                </label>
+
+                <input
+                  type="text"
+                  required
+                  value={tituloAtividade}
+                  onChange={(e) => setTituloAtividade(e.target.value)}
+                  placeholder="Ex: Atividade de Fixação - Aula 5"
+                  className="mt-1 w-full rounded-sm border border-zinc-700 bg-[#090b10] p-2.5 text-xs text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono uppercase text-zinc-400">
+                  Módulo relacionado
+                </label>
+
+                <select
+                  required
+                  value={aulaSelecionada}
+                  onChange={(e) => setAulaSelecionada(e.target.value)}
+                  className="mt-1 w-full rounded-sm border border-zinc-700 bg-[#090b10] p-2.5 text-xs text-white"
+                >
+                  <option value="">Selecione um módulo</option>
+
+                  {aulas.map((aula) => (
+                    <option key={aula.id} value={aula.id}>
+                      Aula {aula.ordem} - {aula.titulo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 border-t border-zinc-800 pt-4">
+
+                <button
+                  type="button"
+                  onClick={() => setModalAtividadeAberto(false)}
+                  className="rounded-sm border border-zinc-700 bg-zinc-800 px-4 py-2 text-xs text-zinc-300"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={salvando}
+                  className="rounded-sm bg-sky-500 px-5 py-2 text-xs font-bold text-zinc-950 disabled:opacity-50"
+                >
+                  {salvando ? 'Salvando...' : 'Criar Atividade'}
+                </button>
+
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE CRIAÇÃO / EDIÇÃO DE QUESTÃO */}
       {modalQuestaoAberto && (
