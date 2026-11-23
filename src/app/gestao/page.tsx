@@ -297,6 +297,7 @@ export default function GestaoPage() {
         {abaAtiva === 'questionarios' && (
           <GerenciadorQuestionarios
             questionarios={questionarios}
+            aulas={aulas}
             onAtualizar={carregarDadosGestor}
           />
         )}

@@ -106,6 +106,7 @@ export default function DashboardPage() {
             id,
             enunciado,
             ordem,
+            ativa,
             alternativas (id, questao_id, texto, ordem)
           )
         )
@@ -113,7 +114,19 @@ export default function DashboardPage() {
       .order('ordem')
 
     if (dadosAulas) {
-      setAulas(dadosAulas as unknown as Aula[])
+      const aulasFiltradas = (dadosAulas as unknown as Aula[]).map((aula) => ({
+        ...aula,
+        questionarios: Array.isArray(aula.questionarios)
+          ? aula.questionarios.map((questionario) => ({
+              ...questionario,
+              questoes: (questionario.questoes || []).filter(
+                (questao) => questao.ativa !== false
+              ),
+            }))
+          : aula.questionarios,
+      }))
+
+      setAulas(aulasFiltradas)
       if (dadosAulas.length > 0) {
         setAulaAtivaId((prev) => prev || dadosAulas[0].id)
       }
@@ -131,6 +144,7 @@ export default function DashboardPage() {
           id,
           enunciado,
           ordem,
+          ativa,
           alternativas (id, questao_id, texto, ordem)
         )
       `)
@@ -138,7 +152,16 @@ export default function DashboardPage() {
       .maybeSingle()
 
     if (dadosFinal) {
-      setAvaliacaoFinal(dadosFinal as unknown as Questionario)
+      if (dadosFinal) {
+      const avaliacao = dadosFinal as unknown as Questionario
+
+      setAvaliacaoFinal({
+        ...avaliacao,
+        questoes: (avaliacao.questoes || []).filter(
+          (questao) => questao.ativa !== false
+        ),
+      })
+    }
     }
 
     // Consulta histórico de tentativas (filtrando estritamente pelo usuário autenticado)
