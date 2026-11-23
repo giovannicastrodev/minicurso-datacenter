@@ -99,8 +99,7 @@ export default function ModalCertificado({
               <strong className="text-white print:text-black">
                 Introdução à Operação de Data Centers
               </strong>
-              , compreendendo os fundamentos de infraestrutura de missão crítica, climatização e PUE,
-              redundância elétrica 2N, diretrizes EHS e procedimentos operacionais padronizados.
+              , adquirindo conhecimentos sobre os fundamentos, a arquitetura e a infraestrutura de data centers, seus equipamentos e sistemas de operação, monitoramento e manutenção, além de práticas de sustentabilidade, desenvolvimento regional e oportunidades profissionais no setor.
             </p>
           </div>
 
