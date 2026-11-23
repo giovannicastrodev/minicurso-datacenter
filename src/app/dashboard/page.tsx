@@ -12,6 +12,7 @@ import ModalQuestionario from '../../components/ModalQuestionario'
 import ModalCertificado from '../../components/ModalCertificado'
 import IfspLogo from '../../components/ui/IfspLogo'
 import MicrosoftLogo from '../../components/ui/MicrosoftLogo'
+import ChatCurso from '../../components/ChatCurso'
 import { IconAward, IconSettings, IconLogOut } from '../../components/ui/Icons'
 
 type VisaoPainel = 'apresentacao' | 'timeline' | 'aula'
@@ -576,6 +577,8 @@ export default function DashboardPage() {
           />
         )}
       </main>
+
+      <ChatCurso />
 
       {/* QUESTIONÁRIO EM TELA CHEIA */}
       {questionarioAtivo && (
