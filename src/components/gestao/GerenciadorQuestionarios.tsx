@@ -394,30 +394,32 @@ export default function GerenciadorQuestionarios({
         </div>
       )}
 
-      {/* Seletor de Questionário com Arestas Retangulares */}
-      <div className="flex items-center gap-2.5 overflow-x-auto pb-2">
-        {questionarios.map((q) => {
-          const ativo = q.id === questionarioIdAtivo
-          return (
-            <button
-              key={q.id}
-              onClick={() => setQuestionarioIdAtivo(q.id)}
-              className={`inline-flex items-center gap-2 rounded-sm px-4 py-2 text-xs font-bold shrink-0 transition ${
-                ativo
-                  ? 'bg-sky-500 text-zinc-950 shadow-sm'
-                  : 'border border-zinc-800 bg-[#11141c] text-zinc-400 hover:text-white'
-              }`}
-            >
-              {q.tipo === 'FINAL' ? (
-                <IconGraduationCap className="w-4 h-4" />
-              ) : (
-                <IconFileText className="w-4 h-4" />
-              )}
-              <span>{q.tipo === 'FINAL' ? 'Avaliação Final' : q.titulo}</span>
-            </button>
-          )
-        })}
-      </div>
+      
+    {/* Seletor de Questionário em Ordem Alfabética */}
+    <div className="flex items-center gap-2.5 overflow-x-auto pb-2">
+      {[...questionarios]
+        .sort((a, b) => {
+          const tituloA = a.tipo === 'FINAL' ? 'Avaliação Final' : a.titulo
+          const tituloB = b.tipo === 'FINAL' ? 'Avaliação Final' : b.titulo
+
+          return tituloA.localeCompare(tituloB, 'pt-BR', { numeric: true })
+        })
+        .map((q) => (
+          <button
+            key={q.id}
+            onClick={() => setQuestionarioIdAtivo(q.id)}
+            className={`flex items-center gap-2 rounded-sm border px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition ${
+              questionarioIdAtivo === q.id
+                ? 'border-sky-500 bg-sky-500/10 text-sky-400'
+                : 'border-zinc-800 bg-[#11141c] text-zinc-400 hover:border-zinc-600'
+            }`}
+          >
+            <IconFileText className="w-4 h-4" />
+            {q.tipo === 'FINAL' ? 'Avaliação Final' : q.titulo}
+          </button>
+        ))}
+    </div>
+
 
       {/* Listagem das Questões do Questionário Ativo */}
       <div className="space-y-4">
