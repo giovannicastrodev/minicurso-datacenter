@@ -28,6 +28,7 @@ export interface Questao {
   enunciado: string
   ordem: number
   alternativas: Alternativa[]
+  ativa: boolean
 }
 
 export interface Questionario {
